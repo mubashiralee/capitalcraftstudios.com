@@ -20,7 +20,11 @@ The numbers behind every moving part (the plate, the stone's drop, the domino ru
 
 ## Publish it
 
-Push to `main`. The workflow in `.github/workflows/publish.yml` runs the tests, puts together the published folder (`node tools/make-site.mjs _site`: the pages and what they load, without tests or tools) and deploys it to GitHub Pages. Nothing is published if a test fails or a page names a file that is not there.
+```bash
+tools/publish.sh
+```
+
+It runs the tests, puts together the published folder (`node tools/make-site.mjs <folder>`: the pages and what they load, without tests or tools) and pushes that folder as the `site` branch, which GitHub Pages serves at https://capitalcraftstudios.com. Nothing is published if a test fails, a page names a file that is not there, or there are changes that have not been committed.
 
 ## House rules
 

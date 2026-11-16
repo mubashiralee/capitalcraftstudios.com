@@ -28,6 +28,21 @@ test('the published folder holds the pages and what they load, and no tests, too
   }
 });
 
+test('the published folder tells GitHub Pages its domain, and to serve the files as they are', () => {
+  const out = mkdtempSync(join(tmpdir(), 'cc-site-'));
+  try {
+    const files = makeSite(out);
+    // Pages reads the domain from a file called CNAME at the top of the published branch: without it, a publish drops the domain.
+    assert.ok(files.includes('CNAME'), 'CNAME is not published');
+    assert.equal(readFileSync(join(out, 'CNAME'), 'utf8'), 'capitalcraftstudios.com\n');
+    // An empty .nojekyll stops Pages from running the files through its own site builder.
+    assert.ok(files.includes('.nojekyll'), '.nojekyll is not published');
+    assert.equal(readFileSync(join(out, '.nojekyll'), 'utf8'), '');
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});
+
 test('a page that names a file which is not there stops the publishing', () => {
   const out = mkdtempSync(join(tmpdir(), 'cc-site-'));
   const page = join(SITE, 'index.html');

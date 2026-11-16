@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 const SITE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Everything the site serves, as paths under the site's folder. */
-export const SERVED = Object.freeze(['index.html', '404.html', 'favicon.svg', 'robots.txt', 'sitemap.xml', 'css', 'js', 'fonts', 'img', 'money-tycoon']);
+// CNAME and .nojekyll are for GitHub Pages: the site's domain, and "serve these files as they are".
+export const SERVED = Object.freeze(['index.html', '404.html', 'favicon.svg', 'robots.txt', 'sitemap.xml', 'CNAME', '.nojekyll', 'css', 'js', 'fonts', 'img', 'money-tycoon']);
 
 /** Every file under a folder, as paths relative to it. */
 function filesUnder(folder, inside = '') {
