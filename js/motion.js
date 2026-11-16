@@ -41,7 +41,9 @@ export class Spring {
  * Call `tick(dt)` once a frame, but only while `el` can be seen: it is on
  * screen, the tab is in front, and the sheet it lies on is not covered by the
  * next one (js/sheets.js says when). `dt` is in seconds and never more than a
- * twentieth, so a pause (a slow frame, a tab switch) cannot make anything jump.
+ * twentieth, so a pause (a slow frame, a tab switch) cannot make anything jump,
+ * and never less than nothing: a browser times a frame from when it was due,
+ * which can be before the clock read here when the loop starts.
  *
  * @param {Element} el
  * @param {(dt: number) => void} tick
@@ -62,7 +64,7 @@ export function whileVisible(el, tick, { margin = '0px', onShow, onHide } = {}) 
     last = performance.now();
     const frame = (time) => {
       if (!running || mine !== loop) return;
-      const dt = Math.min(0.05, (time - last) / 1000);
+      const dt = Math.max(0, Math.min(0.05, (time - last) / 1000));
       last = time;
       tick(dt);
       requestAnimationFrame(frame);
