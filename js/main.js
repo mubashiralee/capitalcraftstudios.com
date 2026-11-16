@@ -863,7 +863,7 @@ function boot() {
       controls: one('[data-dominoes-controls]'),
       button: one('[data-push]'),
       tally: one('[data-tally]'),
-      total: one('[data-total]'),
+      totals: all('[data-total]'),
       status: one('[data-dominoes-status]'),
       designs: one('[data-dominoes-designs]'),
     }),

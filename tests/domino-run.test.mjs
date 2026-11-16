@@ -2,6 +2,7 @@
 // Run with: node --test tests/
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
@@ -19,6 +20,8 @@ import {
   layRun,
   wavePace,
 } from '../js/domino-run.js';
+
+const page = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 const placeOf = (places, index) => ({
   x: places[index * 4],
@@ -225,4 +228,15 @@ test('the number of dominoes follows the size of the stage', () => {
   const phone = countFor(358, 12);
   assert.ok(phone > 1500 && phone < 2500, `a phone gets ${phone}`);
   assert.ok(countFor(500, 9) > countFor(400, 9));
+});
+
+test('every count of dominoes the Domino Reactor sheet shows is the run\'s own, so a phone\'s shorter run is never called ten thousand', () => {
+  const slab = page.slice(page.indexOf('<div class="dr__slab">'), page.indexOf('data-dominoes-designs'));
+  // The script writes the run's count into every [data-total]; any other number of dominoes would be fixed text.
+  const totals = [...slab.matchAll(/<span data-total>([^<]*)<\/span>/g)];
+  assert.ok(totals.length >= 2, `only ${totals.length} places take the run's count`);
+  const fixed = slab.replace(/<span data-total>[^<]*<\/span>/g, '').replace(/<[^>]+>/g, ' ');
+  assert.doesNotMatch(fixed, /\d[\d,]*\s*(?:dominoes|pieces)|thousand|10,?000/i, 'a count of dominoes is written into the page');
+  // Before the script runs (or where it cannot), the count shown is the most a run can hold.
+  for (const [, text] of totals) assert.equal(text, countFor(1e6, 1).toLocaleString('en-GB'));
 });

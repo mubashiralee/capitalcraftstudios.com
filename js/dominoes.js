@@ -257,16 +257,16 @@ function makeTargets(gl, width, height) {
 /**
  * @param {{
  *   stage: HTMLElement, canvas: HTMLCanvasElement, controls: HTMLElement,
- *   button: HTMLButtonElement, tally: HTMLElement, total: HTMLElement, status: HTMLElement,
+ *   button: HTMLButtonElement, tally: HTMLElement, totals: HTMLElement[], status: HTMLElement,
  *   designs: HTMLElement,
  * }} parts
  *   `stage` is the box the run fills; `button` pushes the first domino and
- *   later sets them up again; `tally` and `total` show how many are down, of
- *   how many; `status` tells screen readers when a run starts and ends;
+ *   later sets them up again; `tally` shows how many are down, and every one
+ *   of `totals` how many the run holds (it holds as many as suit the screen); `status` tells screen readers when a run starts and ends;
  *   `designs` holds a button for each design of domino (`data-design`).
  * @returns {{ lay(layout: { spin: 1 | -1 }): void }} `spin` is which way the spiral winds
  */
-export function startDominoes({ stage, canvas, controls, button, tally, total, status, designs }) {
+export function startDominoes({ stage, canvas, controls, button, tally, totals, status, designs }) {
   const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true });
   if (!gl) throw new Error('This browser cannot draw the domino run: it has no WebGL2.');
   const fine = finePointer.matches;
@@ -770,7 +770,7 @@ export function startDominoes({ stage, canvas, controls, button, tally, total, s
     homing = false;
     waiting = -1;
     send(kit.places, run.places, gl.STATIC_DRAW);
-    total.textContent = format(run.count);
+    for (const total of totals) total.textContent = format(run.count);
     canvas.setAttribute(
       'aria-label',
       `A run of ${format(run.count)} dominoes standing in a double spiral. Push the first and they all fall.`,
