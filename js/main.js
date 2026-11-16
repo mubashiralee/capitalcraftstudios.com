@@ -14,6 +14,7 @@ import {
   serialParts,
   stampFrom,
 } from './edition.js';
+import { seatBodies } from './bodies.js';
 import { startBooks } from './books-view.js';
 import { startDominoes } from './dominoes.js';
 import { castDrop, lifted, silhouette } from './drop.js';
@@ -123,7 +124,10 @@ let dominoRun = null;
 let stack = null;
 let tracer = null;
 let bodyEls = [];
+const seats = seatBodies(SITE.bodies, PLATE.orbits.length); // which orbit each body rides, and how far round
 let keepClear = [];
+let wordBoxes = []; // the hero's words and controls, line by line: the bodies pass round these, not through them
+let bodyReach = []; // how far each body (its dot and label) reaches to the right of where it rides, in pixels
 let running = false;
 let loop = 0; // each start of the frame loop gets a number; a frame from an older start stops itself
 let lastFrame = 0;
@@ -358,9 +362,42 @@ function layout() {
     };
   });
 
+  measureWords(heroBox);
+
   if (plate) plate.resize(view.width, view.height, view.ratio);
   else placeSeal(); // the live plate places its seal's button every frame; the still plate needs it done here
   if (!running) drawOnce();
+}
+
+/** Room left between a body and the words it passes, in pixels: across, and up and down. */
+const WORD_ROOM = { across: 18, down: 10 };
+
+/**
+ * Where the hero's words and controls actually are: each line of text, and each
+ * button, link and slider, not the columns they stand in (a column runs well
+ * out past its words, and a body kept out of all of it is hidden half its time).
+ */
+function measureWords(heroBox = hero.getBoundingClientRect()) {
+  const boxes = [];
+  const range = document.createRange();
+  for (const block of copyBlocks) {
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.data.trim()) continue;
+      range.selectNodeContents(node);
+      boxes.push(...range.getClientRects());
+    }
+    for (const control of block.querySelectorAll('a, button, input')) boxes.push(control.getBoundingClientRect());
+  }
+  wordBoxes = boxes
+    .filter((box) => box.width > 1 && box.height > 1) // nothing hidden, nothing clipped away for screen readers
+    .map((box) => ({
+      left: box.left - heroBox.left - WORD_ROOM.across,
+      right: box.right - heroBox.left + WORD_ROOM.across,
+      top: box.top - heroBox.top - WORD_ROOM.down,
+      bottom: box.bottom - heroBox.top + WORD_ROOM.down,
+    }));
+  bodyReach = bodyEls.map((el) => el.offsetWidth);
 }
 
 // ---------------------------------------------------------------------------
@@ -593,9 +630,9 @@ function revealTo(value, duration, { ease = steady, paced = true } = {}) {
 // ---------------------------------------------------------------------------
 
 function buildBodies() {
-  bodyEls = SITE.bodies.slice(0, PLATE.orbits.length).map((body) => {
+  bodyEls = SITE.bodies.map((body) => {
     const link = document.createElement('a');
-    link.className = body.tone ? `body body--${body.tone}` : 'body';
+    link.className = body.gem ? `body body--gem body--gem-${body.gem}` : 'body';
     link.href = body.target;
     link.tabIndex = -1; // the same links are in the page proper; these are a visual echo
     const dot = document.createElement('i');
@@ -661,15 +698,22 @@ function placeBodies() {
   // The bodies come out once the plate is whole: its lines drawn and its stone at rest.
   const ready = state.stone.lift === 0 && state.stone.time >= drop.rests;
   bodyEls.forEach((el, index) => {
-    const body = edition.bodies[index];
-    const orbit = edition.orbits[body.orbit];
-    const angle = body.angle + (edition.spin * TAU * state.orbit) / body.period;
+    const seat = seats[index];
+    const body = edition.bodies.find((each) => each.orbit === seat.orbit); // the orbit's start and speed
+    const orbit = edition.orbits[seat.orbit];
+    const angle = body.angle + TAU * seat.share + (edition.spin * TAU * state.orbit) / body.period;
     const radius = orbit.radius * (1 + orbit.amp * Math.cos(orbit.lobes * angle + orbit.phase));
     const at = plate.project(radius * Math.cos(angle), radius * Math.sin(angle));
-    el.style.transform = `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0) scale(${(0.84 + 0.16 * at.scale).toFixed(3)})`;
+    const size = 0.84 + 0.16 * at.scale;
+    el.style.transform = `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0) scale(${size.toFixed(3)})`;
 
-    const offStage = at.x < 12 || at.x > view.width - 12 || at.y < 70 || at.y > view.height - 24;
-    const overCopy = keepClear.some((box) => at.x > box.left && at.x < box.right && at.y > box.top && at.y < box.bottom);
+    // The body as it is drawn: from its dot (7 px left of where it rides) to the end of its label.
+    const left = at.x - 7 * size;
+    const right = left + (bodyReach[index] ?? 0) * size;
+    const top = at.y - 12;
+    const bottom = at.y + 12;
+    const offStage = left < 12 || right > view.width - 12 || at.y < 70 || at.y > view.height - 24; // never cut off at an edge
+    const overCopy = wordBoxes.some((box) => right > box.left && left < box.right && bottom > box.top && top < box.bottom);
     const hidden = String(!ready || offStage || overCopy);
     if (el.dataset.hidden !== hidden) el.dataset.hidden = hidden;
   });
@@ -879,6 +923,8 @@ function boot() {
 
   showEdition(chosen.serial, chosen.origin);
   layout();
+  // The words take their own width once the typeface is in; the hero itself may not change size.
+  document.fonts.ready.then(() => measureWords());
 
   // The phones first: if the app in them cannot start, they stay photographs and the turntable still turns.
   const phoneStage = one('[data-turntable]');

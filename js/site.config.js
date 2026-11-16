@@ -12,13 +12,18 @@ export const SITE = Object.freeze({
   hiddenInscription: 'EDITION {serial} · ONE OF {count} · ',
 
   // The bodies that travel the orbits. `target` is the id of a section in
-  // index.html. There are five orbits, so list at most five; the first rides
-  // the innermost orbit.
+  // index.html. `orbit` is which of the five orbits it rides, 0 the innermost;
+  // bodies that share an orbit are spaced evenly round it (js/bodies.js).
+  // `gem` names the jewel a product is marked with (.body--gem-<name> in
+  // css/site.css); a body without one is a plain ring.
   bodies: Object.freeze([
-    Object.freeze({ label: 'Money Tycoon', target: '#money-tycoon', tone: 'gem' }),
-    Object.freeze({ label: 'Apps', target: '#apps' }),
-    Object.freeze({ label: 'Games', target: '#games' }),
-    Object.freeze({ label: 'Websites', target: '#websites' }),
-    Object.freeze({ label: 'Start a project', target: '#contact' }),
+    Object.freeze({ label: 'Money Tycoon', target: '#money-tycoon', orbit: 0, gem: 'mt' }),
+    Object.freeze({ label: 'Domino Reactor', target: '#domino-reactor', orbit: 0, gem: 'dr' }),
+    Object.freeze({ label: 'Orchestration Hub', target: '#orchestration-hub', orbit: 1, gem: 'hub' }),
+    Object.freeze({ label: 'CapitalCraft Books', target: '#capitalcraft-books', orbit: 1, gem: 'bk' }),
+    Object.freeze({ label: 'Apps', target: '#apps', orbit: 2 }),
+    Object.freeze({ label: 'Games', target: '#games', orbit: 3 }),
+    Object.freeze({ label: 'Websites', target: '#websites', orbit: 3 }),
+    Object.freeze({ label: 'Start a project', target: '#contact', orbit: 4 }),
   ]),
 });
