@@ -1854,23 +1854,23 @@ html:not(.has-plate) .speed {
   }
 }
 
-/* The floor: the stages across the top, a lane to each job, and the gate before the merge. */
+/* The brain (js/hub.js). Without script, the four stages every job goes through. */
 .hub__stage {
-  --inset: 58px; /* room at each end of a lane for half a job */
-
+  position: relative;
   grid-area: stage;
   align-self: center;
-  padding: 20px 0 14px;
-  border-radius: 22px;
-  background: rgb(255 255 255 / 0.035);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  aspect-ratio: 1.12;
+  max-height: min(66vh, 640px);
+  width: 100%;
 }
 
 .hub__stages {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0 var(--inset);
-  padding: 0;
+  align-content: center;
+  height: 100%;
+  margin: 0;
+  padding: 0 12px;
   list-style: none;
   color: #8aa6b3;
   font-size: var(--step-small);
@@ -1882,135 +1882,89 @@ html:not(.has-plate) .speed {
   border-left: 1px solid rgb(255 255 255 / 0.12);
 }
 
-.hub__lanes {
-  position: relative;
-  padding: 0 var(--inset);
-}
-
-.hub__lane {
-  position: relative;
-  height: clamp(46px, 7.2svh, 62px);
-}
-
-.hub__lane::before {
-  content: "";
+.hub__brain {
   position: absolute;
-  inset: 50% 0 auto;
-  height: 1px;
-  background: rgb(255 255 255 / 0.1);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.hub__gate {
+.hub__brain.is-held {
+  cursor: grabbing;
+}
+
+.hub__brain.is-pointing {
+  cursor: pointer;
+}
+
+/* The parts that explain themselves: a 44px target over each, drawn by the canvas beneath. */
+.hub__node {
   position: absolute;
   top: 0;
-  bottom: 0;
-  left: calc(var(--inset) + (100% - 2 * var(--inset)) * 0.75);
-  border-left: 1px dashed rgb(143 211 232 / 0.45);
-  transition: border-color 200ms ease;
-}
-
-.hub__stage.is-held .hub__gate {
-  border-left-color: var(--held);
-}
-
-/* A job: what it is, and (in pips) how large a model it was given. */
-.hub__job {
-  position: absolute;
-  top: 50%;
   left: 0;
-  translate: -50% -50%;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 10px 0 12px;
-  border-radius: 999px;
-  background: #143140;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
-  color: #e3eef3;
-  font-size: 0.8125rem;
-  font-weight: 650;
-  line-height: 1;
-  white-space: nowrap;
-  will-change: transform;
-}
-
-.hub__job[hidden] {
-  display: none;
-}
-
-.hub__model {
-  display: inline-flex;
-  gap: 3px;
-}
-
-.hub__model > i {
-  width: 5px;
-  height: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.2);
+  background: transparent;
+  cursor: help;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.hub__model[data-tier="1"] > i:first-child,
-.hub__model[data-tier="2"] > i:nth-child(-n + 2),
-.hub__model[data-tier="3"] > i {
-  background: var(--calm);
+.hub__node:focus-visible {
+  outline: 2px solid var(--calm);
+  outline-offset: -6px;
 }
 
-/* In the audit a second model looks the work over: a second ring round the job. */
-.hub__job.is-audited {
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16), 0 0 0 3px var(--ground), 0 0 0 4.5px var(--calm);
-}
-
-/* A release is amber from the start: it is the one job that will need a person. */
-.hub__job--release {
-  background: var(--held);
-  color: #2b1700;
-  transition: background-color 240ms ease, color 240ms ease;
-}
-
-.hub__job--release .hub__model > i {
-  background: #2b1700;
-}
-
-/* Approved, it goes green and through the gate. */
-.hub__job--release.is-cleared {
-  background: var(--clear);
-  color: #052416;
-}
-
-.hub__job--release.is-cleared .hub__model > i {
-  background: #052416;
-}
-
-.hub__job--release.is-audited {
-  box-shadow: 0 0 0 3px var(--ground), 0 0 0 4.5px var(--calm);
-}
-
-.hub__job.is-waiting {
-  cursor: pointer;
-  box-shadow: 0 0 0 3px var(--ground), 0 0 0 4.5px var(--held);
-}
-
-.hub__job.is-waiting::after {
-  content: "";
+.hub__card {
   position: absolute;
-  inset: -6px;
-  border: 1.5px solid var(--held);
-  border-radius: 999px;
-  animation: hub-wait 1500ms var(--ease-out) infinite;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: var(--card-w, 260px);
+  padding: 14px 16px 15px;
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--ground) 82%, #ffffff);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 18px 40px -18px rgb(0 0 0 / 0.7);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(var(--card-x, 0), var(--card-y, 0), 0) scale(0.96);
+  transform-origin: var(--card-from, left center);
+  transition:
+    opacity 160ms ease,
+    transform 200ms var(--ease-out);
 }
 
-@keyframes hub-wait {
-  from {
-    opacity: 0.9;
-    transform: scale(0.96);
-  }
+.hub__card.is-open {
+  opacity: 1;
+  transform: translate3d(var(--card-x, 0), var(--card-y, 0), 0) scale(1);
+}
 
-  to {
-    opacity: 0;
-    transform: scale(1.32, 1.7);
-  }
+.hub__card-name {
+  margin: 0 0 4px;
+  color: #f6fbfd;
+  font-size: var(--step-body);
+  font-stretch: 108%;
+  font-weight: 650;
+}
+
+.hub__card[data-part="decision"] .hub__card-name {
+  color: var(--calm);
+}
+
+.hub__card-text {
+  margin: 0;
+  color: #a3bcc7;
+  font-size: var(--step-small);
+  line-height: 1.45;
+  text-wrap: pretty;
 }
 
 /* Other things on the bench. */
@@ -2047,15 +2001,8 @@ html:not(.has-plate) .speed {
   }
 
   .hub__stage {
-    --inset: 46px;
-
-    margin-top: clamp(16px, 4vw, 26px);
-  }
-
-  .hub__job {
-    height: 28px;
-    padding: 0 8px 0 10px;
-    font-size: 0.75rem;
+    aspect-ratio: 0.92;
+    margin-top: clamp(10px, 3vw, 20px);
   }
 
   /* The button comes straight after the floor it works, ahead of the words. */
