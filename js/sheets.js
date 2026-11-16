@@ -13,7 +13,7 @@
 import { ARROW, DIAL, ringArcs } from './dial.js';
 import { CEE } from './logo.js';
 import { clamp, reduceMotion } from './motion.js';
-import { layStack, nextStop, recede, showOf, stackAt, startOf, travelled } from './stack.js';
+import { layStack, nextStop, outOfSight, recede, showOf, stackAt, startOf, travelled } from './stack.js';
 
 /** Make one part of a drawing (an SVG element), with its attributes set. */
 function draw(name, attributes = {}) {
@@ -189,6 +189,7 @@ export function startSheets({ main, top, foot = null }) {
     const scroll = window.scrollY;
     const still = reduceMotion.matches;
     const { tops, covers, front } = stackAt(lay, scroll);
+    const hidden = outOfSight(lay, tops);
 
     sheets.forEach((sheet, index) => {
       const cover = still ? 0 : covers[index];
@@ -200,7 +201,7 @@ export function startSheets({ main, top, foot = null }) {
       }
 
       // Out of sight: the next sheet has docked over it. Whatever moves on it can rest.
-      const covered = index + 1 < sheets.length && tops[index + 1] <= 0.5 - lay.lip;
+      const covered = hidden[index];
       if (covered !== sheet.covered) {
         sheet.covered = covered;
         sheet.el.toggleAttribute('data-covered', covered);

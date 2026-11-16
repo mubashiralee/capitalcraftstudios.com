@@ -12,6 +12,16 @@
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
+/**
+ * How near counts as there, in pixels. What a browser says of a page is rounded: how tall the page
+ * is, how tall the window is and how far the page has scrolled, each in its own way. With the page
+ * zoomed those do not agree: Safari at 115% has a page at its foot read as 2 px short of its end.
+ * Zoomed far out, one pixel of the screen is several of the page's. And the place worked out for
+ * a sheet is out by up to half a pixel for every sheet above it, since each height is given as a
+ * whole number. So no place on the page is compared to the pixel: within this much of it is there.
+ */
+export const NEAR = 8;
+
 function real(value, name) {
   if (!Number.isFinite(value)) throw new RangeError(`${name} must be a real number, not ${value}`);
   return value;
@@ -67,6 +77,19 @@ export function stackAt(lay, scroll) {
   return { tops, covers, front };
 }
 
+/**
+ * Which sheets are out of sight: the sheet after each has risen over it, far enough that its
+ * round corners are above the window too. Whatever moves on a sheet out of sight can rest.
+ * @param {number[]} tops  how far down the window each sheet's top is, from `stackAt`
+ * @returns {boolean[]} one for each sheet; the last is never out of sight
+ */
+export function outOfSight(lay, tops) {
+  // All but risen is risen (see NEAR): what is left of a corner is a sliver a pixel or two wide.
+  // But never while the next sheet's top is still in the window, with a strip of this one above it.
+  const risen = Math.min(NEAR - lay.lip, 0);
+  return tops.map((_, index) => index + 1 < tops.length && tops[index + 1] <= risen);
+}
+
 function known(lay, index) {
   if (!Number.isInteger(index) || index < 0 || index >= lay.heights.length) {
     throw new RangeError(`there is no sheet ${index} in a stack of ${lay.heights.length}`);
@@ -112,8 +135,9 @@ export function showOf(lay, index, offset, lead = 0) {
  */
 export function nextStop(lay, scroll, end) {
   real(scroll, 'the scroll position');
-  // A stop less than a pixel ahead counts as reached: scroll positions are not always whole numbers.
-  return stopsOf(lay, end).find((stop) => stop > scroll + 1) ?? 0;
+  // A stop all but reached is reached (see NEAR). Were it not, a page at its foot that reads as a
+  // little short of its end would be sent to its foot for ever, and never back to the top.
+  return stopsOf(lay, end).find((stop) => stop > scroll + NEAR) ?? 0;
 }
 
 /** The scroll positions the "next" arrow stops at: the opening of each sheet, then the end of the page. */
