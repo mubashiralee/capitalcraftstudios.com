@@ -3,7 +3,8 @@
 // runs in the browser (js/dominoes.js) and in Node (tests/domino-camera.test.mjs).
 //
 // The film has one rule: the camera is pointed at the dominoes that are
-// falling. It waits close behind the first domino. At the push, time slows,
+// falling. It opens close behind the first domino, and waits there: that is
+// the picture the stage is first seen as. At the push, time slows,
 // and the camera's head follows the wave away down the row. Then the crane
 // draws back and rises until the whole run is in the picture; as it does, the
 // head lets the wave go, a little at a time, and turns to the middle of the
@@ -475,7 +476,6 @@ const SLOWEST = 0.2; // the slowest the film ever runs the run's clock, as a sha
 const AHEAD = 1.1; // seconds ahead of the waves that the crane keeps in the picture, once the head has let them go
 const KEEPS_UP = { most: 16, soon: 25 }; // the head keeps up with what it looks at: up to this many domino heights a second, and this briskly
 const ORBIT = 0.07; // radians a second the crane drifts round the run while it falls
-const ARRIVE = { turn: 0.55, back: 1.14 }; // how the film opens: radians round from where the crane rests, and times further off than the whole run needs
 const LOOK = { low: 0.1, high: 1.45 }; // radians the camera may look down from, however a visitor tilts it
 const BRISK = { crane: 9, head: 60, letting: 6, slowing: 200, gathering: 30, home: 5, drift: 3 }; // how briskly each part moves (the stiffness of its spring)
 
@@ -702,17 +702,6 @@ export function createFilm({ places, radius, reach, aspect: shape, spin }) {
   return {
     /** The picture has a new shape (its width over its height). */
     reframe,
-
-    /** Open the film: put the camera high and wide at once, so that its first move is down to the first domino. */
-    establish() {
-      rise.snap(whole.rise);
-      range.snap(whole.range + Math.log(ARRIVE.back));
-      aim.forEach((glide, part) => glide.snap(whole.look[part]));
-      lift.snap(whole.lift);
-      stop.snap(whole.stop);
-      orbit.snap(-ARRIVE.turn * spin);
-      drift.snap(0);
-    },
 
     /**
      * Move the camera on.

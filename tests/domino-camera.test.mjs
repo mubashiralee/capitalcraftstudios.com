@@ -690,31 +690,24 @@ test('set up again, the camera goes home: back to the first domino, by the short
   assert.equal(film.pace, 1);
 });
 
-test('the film opens high over the whole run and comes down to the first domino', () => {
-  const spec = STAGES[0];
-  const run = laid(spec.count, spec.spin);
-  const reach = run.radius + 2;
-  const film = createFilm({ places: run.places, radius: run.radius, reach, aspect: spec.aspect, spin: spec.spin });
-  const schedule = createSchedule(spec.count);
-  const rest = film.shot;
-  film.establish();
-  const high = film.shot;
-  const view = viewOf(high, { aspect: spec.aspect, reach });
-  let worst = 0;
-  for (let index = 0; index < run.count; index += 25) worst = Math.max(worst, seen(view, run.places[index * 4], run.places[index * 4 + 1]).off);
-  assert.ok(worst < 0.9, `from where the film opens the run reaches ${worst} of the way to the picture's edge`);
-  assert.ok(high.eye[2] > 40, `it opens ${high.eye[2]} up`);
-  let frames = 0;
-  let last = Infinity;
-  while (film.step({ mode: 'standing', falls: schedule.falls, now: 0, dt: FRAME })) {
-    frames += 1;
-    const gap = Math.hypot(...[0, 1, 2].map((part) => film.shot.eye[part] - rest.eye[part]));
-    assert.ok(gap <= last + 1e-6, `frame ${frames}: the camera went away from the first domino again`);
-    last = gap;
-    assert.ok(frames < 1200, 'the camera never arrives');
+test('the film opens on the first domino: the camera is already at rest, with no move to make before the push', () => {
+  for (const spec of STAGES) {
+    const run = laid(spec.count, spec.spin);
+    const reach = run.radius + 2;
+    const film = createFilm({ places: run.places, radius: run.radius, reach, aspect: spec.aspect, spin: spec.spin });
+    const schedule = createSchedule(spec.count);
+    const what = named(spec);
+    // The owner's picture of the stage as it should first be seen: close behind the first domino.
+    assert.equal('establish' in film, false, `${what}: the film still has a way to open high over the whole run`);
+    const opening = film.shot;
+    const first = seen(viewOf(opening, { aspect: spec.aspect, reach }), run.places[0], run.places[1]);
+    assert.ok(first.off < 0.02, `${what}: as the film opens the first domino is at ${first.across}, ${first.up} in the picture`);
+    assert.ok(opening.eye[2] < 5, `${what}: it opens ${opening.eye[2]} up`);
+    assert.equal(film.step({ mode: 'standing', falls: schedule.falls, now: 0, dt: FRAME }), false, `${what}: the camera had somewhere to go before anything was pushed`);
+    const rested = stageOf(spec).film.shot;
+    opening.eye.forEach((part, at) => near(part, rested.eye[at], 1e-9, `${what}: the camera, part ${at}`));
+    opening.look.forEach((part, at) => near(part, rested.look[at], 1e-9, `${what}: what it looks at, part ${at}`));
   }
-  assert.ok(frames > 90, `it arrived in ${frames} frames`);
-  rest.eye.forEach((part, at) => near(film.shot.eye[at], part, 0.02, `the camera, part ${at}`));
 });
 
 test('a narrower picture puts the camera further back to hold the whole run', () => {

@@ -295,7 +295,6 @@ export function startDominoes({ stage, canvas, controls, button, tally, totals, 
   let shadowStale = true; // a domino moved, so the shadows need a new picture too
   let aspect = 1;
   let ratio = 1; // dots of the picture per CSS pixel
-  let arrived = false;
 
   // ----- the camera -----
 
@@ -736,11 +735,6 @@ export function startDominoes({ stage, canvas, controls, button, tally, totals, 
       onShow: () => {
         stale = true;
         wake();
-        if (!arrived) {
-          arrived = true;
-          // The film opens high over the whole run, and the camera comes down to the first domino.
-          if (!reduceMotion.matches) film.establish();
-        }
       },
     },
   );
