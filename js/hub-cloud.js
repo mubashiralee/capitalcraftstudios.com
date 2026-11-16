@@ -66,8 +66,9 @@ export const LIGHT = Object.freeze({
 
 /**
  * How wide a point of the glass or of a thread is: its width squared, times the number of
- * points, in units of the mind. It is the same for a cloud of any size, so a cloud of fewer
- * points is drawn with wider ones and is as bright. (A node is as wide as `LIGHT.nodeWide` says
+ * points, in units of the mind. It is the same for a cloud of any size, so a cloud of one plan
+ * drawn with fewer points has wider ones and is as bright. (The sparer plan has fewer threads
+ * under the same glass, so its points come out a little wider than the full plan's.) (A node is as wide as `LIGHT.nodeWide` says
  * in any cloud: there are as many nodes in each.)
  */
 export const GRAIN = 1.1;
@@ -142,7 +143,7 @@ void main() {
   // The glass: faint where it faces the eye, bright at its edge, the far wall behind the near
   // one, and one lamp's light where the near wall sends it back.
   float toward = -n.z;
-  float rim = pow(1.0 - abs(toward), ${f(LIGHT.rimPower)});
+  float rim = pow(max(1.0 - abs(toward), 0.0), ${f(LIGHT.rimPower)}); // never the power of less than nothing: a turned grain can face the eye by a hair more than wholly
   float sheen = pow(max(dot(n, vec3(${LIGHT.sheenFaces.map(f).join(', ')})), 0.0), ${f(LIGHT.sheenPower)});
   float glass = (${f(LIGHT.glass)} + ${f(LIGHT.rimmed)} * rim) * mix(${f(LIGHT.far)}, 1.0, smoothstep(-0.25, 0.35, toward)) + ${f(LIGHT.sheen)} * sheen;
   // The constellation: nearer is brighter.
@@ -419,7 +420,7 @@ const GLOW = Object.freeze({ alpha: 0.09, share: 0.42, disc: 0.72 });
  * times a frame and not thousands. `quiet` dims the whole picture alike: it is not what sorts
  * the piles, so a dimmed picture keeps its form and a picture fading in does not come in steps.
  *
- * @param {{ count: number, at: Float32Array, normal: Float32Array, glow: Float32Array, part: Uint8Array }} mind  from `buildMind`
+ * @param {{ count: number, at: Float32Array, normal: Float32Array, glow: Float32Array, part: Uint8Array, plan: object }} mind  from `buildMind`; its `plan` says which constellation's threads to draw
  * @param {Int8Array} owner  the region each point belongs to, from `regionOfPoints`
  * @param {{ dust: number[], pale: number[], lit: number[], cleared: number[] }} colours  each red, green, blue from 0 to 255
  * @returns {(ctx: CanvasRenderingContext2D, now: { view: object, quiet: number, busy: number[], wave: { from: number[], radius: number, strength: number } | null }) => void}
@@ -497,7 +498,7 @@ export function createLiteCloud(mind, owner, colours) {
         const across = rows[0] * nx + rows[1] * ny + rows[2] * nz;
         const down = rows[3] * nx + rows[4] * ny + rows[5] * nz;
         const away = rows[6] * nx + rows[7] * ny + rows[8] * nz;
-        const rim = (1 - Math.abs(away)) ** LIGHT.rimPower;
+        const rim = Math.max(0, 1 - Math.abs(away)) ** LIGHT.rimPower;
         const sheen = Math.max(0, across * LIGHT.sheenFaces[0] + down * LIGHT.sheenFaces[1] + away * LIGHT.sheenFaces[2]) ** LIGHT.sheenPower;
         v = ((LIGHT.glass + LIGHT.rimmed * rim) * (LIGHT.far + (1 - LIGHT.far) * smooth(-0.25, 0.35, -away)) + LIGHT.sheen * sheen) * mind.glow[i];
       }

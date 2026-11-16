@@ -202,6 +202,7 @@ function aHub({ reduce, inView = true, small = false }) {
   const under = scene.children[0];
   const over = scene.children.at(-1);
   const glass = scene.children.length === 3 ? scene.children[1] : null;
+  if (Part.hasCard) assert.ok(glass, 'on a page with a graphics card the Hub kept no layer for it');
   const drawn = () => ({ desk: under.pen.calls.clearRect ?? 0, work: over.pen.calls.clearRect ?? 0, mind: glass?.card.calls.drawArrays ?? 0 });
   const forget = () => [under.pen, over.pen, glass?.card].forEach((each) => each?.forget());
   forget();
@@ -236,6 +237,18 @@ test('a small page is given the sparer constellation, and a wide one the full: o
 
 test('with motion reduced the Hub is drawn only when something has changed it', () => {
   const hub = aHub({ reduce: true });
+  run(30);
+  assert.deepEqual(hub.drawn(), { desk: 0, work: 0, mind: 0 }, 'a still Hub is being drawn again and again');
+});
+
+test('when motion is reduced while the Hub is moving, it is drawn once more, whole and still, and then left alone', () => {
+  // The made-up page has run for less time than the mind takes to gather: the last frame drawn in motion is half a picture.
+  const hub = aHub({ reduce: false });
+  motion.matches = true;
+  run(30);
+  const { desk, work, mind } = hub.drawn();
+  assert.ok(desk >= 1 && work >= 1 && mind >= 1, `with motion reduced part-way the Hub was left as its last moving frame: ${JSON.stringify({ desk, work, mind })}`);
+  hub.forget();
   run(30);
   assert.deepEqual(hub.drawn(), { desk: 0, work: 0, mind: 0 }, 'a still Hub is being drawn again and again');
 });

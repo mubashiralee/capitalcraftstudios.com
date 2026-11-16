@@ -163,7 +163,6 @@ export function constellation(plan = PLAN) {
         other[k] = b[k] + (a[k] - b[k]) * share;
       }
       const between = nodes.some((node, k) => k !== i && k !== j && gap(node.at, one) < share * long && gap(node.at, other) < share * long);
-      // A thread between two large nodes is the brighter.
       // A thread is as bright as the smaller of its two nodes: the few between large nodes stand out from the many between small ones.
       if (!between) threads.push({ from: i, to: j, long, glow: 0.45 + 0.5 * Math.min(nodes[i].size, nodes[j].size) });
     }
@@ -497,7 +496,7 @@ export function regionOfPoints(mind) {
 }
 
 /**
- * The decision model: a synapse on the path from Build to Audit. Every
+ * The decision model: a gate on the path from Build to Audit. Every
  * finished build passes it, and it decides what happens next.
  */
 export const DECISION = Object.freeze(along(REGIONS[1].centre, REGIONS[2].centre, 0.5));

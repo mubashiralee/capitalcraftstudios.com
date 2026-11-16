@@ -1359,6 +1359,7 @@ export function startHub({ slab, stage, button, status }) {
   // The full cloud is built once the page has nothing better to do: until then the plain one stands in.
   (window.requestIdleCallback ?? ((run) => setTimeout(run, 240)))(buildCloud);
 
+  let moved = false; // the last frame was drawn in motion
   const loop = whileVisible(
     stage,
     (dt) => {
@@ -1367,6 +1368,11 @@ export function startHub({ slab, stage, button, status }) {
         dimmed = focus ? DIM : 1;
         born = 1;
         wheel.step(dt);
+        // Motion reduced while the picture was moving: what is on the screen is a moment of it, perhaps half gathered. Draw it once more, whole and still.
+        if (moved) {
+          moved = false;
+          dirty = true;
+        }
         if (dirty || press) {
           still();
           sync();
@@ -1374,6 +1380,7 @@ export function startHub({ slab, stage, button, status }) {
         }
         return;
       }
+      moved = true;
       step(dt);
       sync();
       draw();
