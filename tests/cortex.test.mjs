@@ -5,25 +5,37 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  BAND,
   CROSSING,
   DECISION,
+  DESK,
+  FIGURE,
+  LOOK,
   MIDDLE,
   ORCHESTRATOR,
   PART,
+  PLATE,
   REGIONS,
+  TAU,
   WAVE_SECONDS,
   VERDICTS,
-  YOU,
   along,
+  approach,
+  bandAt,
   buildCortex,
   centreOf,
   createAccounts,
   facing,
+  frameFor,
+  onDesk,
   placeOf,
   pointOf,
   project,
   regionOfPoints,
+  seatOf,
+  seeded,
   spot,
+  turning,
   waveAt,
 } from '../js/cortex.js';
 import { GATE, STAGES, createFloor } from '../js/floor.js';
@@ -59,6 +71,210 @@ test('the two hemispheres are mirror images in size, with a dark fissure between
   assert.ok(midline < 40, `${midline} points lie in the fissure`);
 });
 
+test('the cortex is folded: most of it stands on the crests, and the grooves between them hold few points', () => {
+  let cortex = 0;
+  let crest = 0;
+  let groove = 0;
+  for (let i = 0; i < brain.count; i += 1) {
+    assert.ok(brain.fold[i] >= 0 && brain.fold[i] <= 1, `point ${i} is ${brain.fold[i]} of the way up its fold`);
+    if (brain.part[i] !== PART.cortex) continue;
+    cortex += 1;
+    if (brain.fold[i] > 0.9) crest += 1;
+    if (brain.fold[i] < 0.3) groove += 1;
+  }
+  // Drawn brighter the higher it stands, this is what makes the folds: broad lit crests, thin dark lines between.
+  assert.ok(crest / cortex > 0.5, `${crest} of ${cortex} points stand on a crest`);
+  assert.ok(groove / cortex > 0.01 && groove / cortex < 0.2, `${groove} of ${cortex} points lie in a groove`);
+});
+
+test('a denser cloud is the same brain with more points', () => {
+  const dense = buildCortex(seeded(42), 4);
+  assert.ok(dense.count > brain.count * 3.6 && dense.count < brain.count * 4.4, `${dense.count} points against ${brain.count}`);
+  const share = (cloud, kind) => cloud.part.reduce((sum, part) => sum + (part === kind ? 1 : 0), 0) / cloud.count;
+  for (const kind of Object.values(PART)) {
+    assert.ok(Math.abs(share(dense, kind) - share(brain, kind)) < 0.03, `part ${kind}: ${share(dense, kind).toFixed(3)} against ${share(brain, kind).toFixed(3)}`);
+  }
+  assert.equal(dense.part.reduce((sum, part) => sum + (part === PART.stem ? 1 : 0), 0), 360 * 4);
+  for (let i = 0; i < dense.count * 3; i += 1) assert.ok(Math.abs(dense.at[i]) < 1.2, `coordinate ${i}: ${dense.at[i]}`);
+  for (const none of [0, -1, Number.NaN]) assert.throws(() => buildCortex(seeded(42), none), RangeError);
+});
+
+test('every point knows which way its surface faces, and has a number of its own', () => {
+  const middles = { [PART.cerebellum]: [0, 0.33, 0.6] };
+  let seen = 0;
+  const owns = new Set();
+  for (let i = 0; i < brain.count; i += 1) {
+    const at = [brain.at[i * 3], brain.at[i * 3 + 1], brain.at[i * 3 + 2]];
+    const normal = [brain.normal[i * 3], brain.normal[i * 3 + 1], brain.normal[i * 3 + 2]];
+    assert.ok(Math.abs(Math.hypot(...normal) - 1) < 1e-4, `the normal of point ${i} is ${Math.hypot(...normal)} long`);
+    assert.ok(brain.own[i] >= 0 && brain.own[i] < 1, `point ${i} has ${brain.own[i]} for its own number`);
+    owns.add(brain.own[i]);
+    // Lit from one side, a point whose surface faced inward would be bright where it should be dark.
+    const middle = middles[brain.part[i]];
+    if (!middle) continue;
+    seen += 1;
+    const out = at.map((part, k) => part - middle[k]);
+    assert.ok(out[0] * normal[0] + out[1] * normal[1] + out[2] * normal[2] > 0, `point ${i} of the cerebellum faces inward`);
+  }
+  assert.ok(seen > 300, 'the cerebellum was looked at');
+  assert.ok(owns.size > brain.count * 0.99, 'the points share their numbers');
+  // The top of the brain faces up, and its flanks face out to their own side.
+  let top = 0;
+  let flank = 0;
+  for (let i = 0; i < brain.count; i += 1) {
+    if (brain.part[i] !== PART.cortex) continue;
+    const [x, y] = [brain.at[i * 3], brain.at[i * 3 + 1]];
+    if (y < -0.5) {
+      top += 1;
+      assert.ok(brain.normal[i * 3 + 1] < -0.5, `a point on the crown faces ${brain.normal[i * 3 + 1]} up`);
+    }
+    if (Math.abs(x) > 0.66 && y < 0) {
+      flank += 1;
+      assert.equal(Math.sign(brain.normal[i * 3]), Math.sign(x), 'a point on the flank faces across the brain');
+    }
+  }
+  assert.ok(top > 20 && flank > 20, `crown ${top}, flank ${flank}`);
+});
+
+test('no point of the hemispheres is buried in a temporal lobe: what cannot be seen is not drawn', () => {
+  // The temporal lobes: under each hemisphere, towards the front.
+  let buried = 0;
+  for (let i = 0; i < brain.count; i += 1) {
+    if (brain.part[i] !== PART.cortex) continue;
+    const [x, y, z] = [brain.at[i * 3], brain.at[i * 3 + 1], brain.at[i * 3 + 2]];
+    const within = Math.hypot((Math.abs(x) - 0.5) / 0.22, (y - 0.2) / 0.15, (z + 0.14) / 0.4);
+    if (within < 0.6) buried += 1;
+  }
+  assert.equal(buried, 0);
+});
+
+test('the brainstem is short, and tucked under the brain: it does not hang down like a stalk', () => {
+  let lowest = -Infinity;
+  for (let i = 0; i < brain.count; i += 1) if (brain.part[i] === PART.stem) lowest = Math.max(lowest, brain.at[i * 3 + 1]);
+  assert.ok(lowest > 0.5 && lowest < 0.7, `the stem ends at ${lowest}`);
+});
+
+test('the desk lies under the whole brain, and the accounts sit along its near rim', () => {
+  let lowest = -Infinity;
+  for (let i = 0; i < brain.count; i += 1) lowest = Math.max(lowest, brain.at[i * 3 + 1]);
+  assert.ok(DESK.y > lowest, `the brain reaches down to ${lowest}, the desk is at ${DESK.y}`);
+  assert.ok(DESK.y - lowest < 0.2, 'the desk is a long way under the brain');
+  const seats = [0, 1, 2].map((each) => onDesk(seatOf(each, 3)));
+  for (const seat of seats) {
+    assert.equal(seat[1], DESK.y);
+    assert.ok(Math.abs(Math.hypot(seat[0], seat[2]) - DESK.radius) < 1e-12, 'a seat is off the rim');
+    assert.ok(seat[2] < -DESK.radius * 0.7, 'a seat is not on the near side');
+  }
+  assert.ok(Math.abs(seats[1][0]) < 1e-12 && seats[1][2] < seats[0][2], 'the middle seat is the nearest');
+  assert.ok(Math.abs(seats[0][0] + seats[2][0]) < 1e-12 && seats[0][0] < 0, 'the outer seats mirror each other');
+  assert.ok(seats[2][0] - seats[1][0] > 0.3, 'the seats are too close to tell apart');
+  assert.equal(seatOf(0, 1), 0, 'one account sits in the middle');
+});
+
+test('the desk is engraved with a band of strands that weave, each closing on itself, all inside its rim', () => {
+  assert.ok(BAND.inner > 0.5 && BAND.outer < 1, 'the band is not on the outer part of the desk');
+  assert.ok(Number.isInteger(BAND.lobes) && BAND.lobes >= 5);
+  for (let strand = 0; strand < BAND.strands; strand += 1) {
+    let least = Infinity;
+    let most = -Infinity;
+    for (let step = 0; step <= 720; step += 1) {
+      const out = bandAt(strand, (step / 720) * Math.PI * 2);
+      least = Math.min(least, out);
+      most = Math.max(most, out);
+    }
+    assert.ok(least >= BAND.inner - 1e-9 && most <= BAND.outer + 1e-9, `strand ${strand} runs from ${least} to ${most}`);
+    assert.ok(most - least > (BAND.outer - BAND.inner) * 0.9, `strand ${strand} does not cross the band`);
+    assert.ok(Math.abs(bandAt(strand, 0) - bandAt(strand, Math.PI * 2)) < 1e-9, `strand ${strand} does not close on itself`);
+    assert.ok(Math.abs(bandAt(strand, 1.3, 0.4) - bandAt(strand, 1.3)) > 1e-3, 'the band cannot be made to drift');
+  }
+  // No two strands lie on each other, and between them they cross: that is what makes it a weave.
+  for (let strand = 1; strand < BAND.strands; strand += 1) {
+    let apart = 0;
+    let crossings = 0;
+    let before = 0;
+    for (let step = 0; step <= 720; step += 1) {
+      const gap = bandAt(strand, (step / 720) * Math.PI * 2) - bandAt(0, (step / 720) * Math.PI * 2);
+      apart = Math.max(apart, Math.abs(gap));
+      if (step > 0 && gap * before < 0) crossings += 1;
+      before = gap || before;
+    }
+    assert.ok(apart > 0.02, `strand ${strand} lies on the first`);
+    assert.ok(crossings >= BAND.lobes, `strand ${strand} crosses the first ${crossings} times`);
+  }
+});
+
+test('the brain is looked at from a little above, so the desk under it is seen as a desk', () => {
+  assert.ok(LOOK.pitch > 0.1 && LOOK.pitch < 0.5, `the eye is ${LOOK.pitch} radians above level`);
+  const view = { ...LOOK, yaw: 0, scale: 1, x: 0, y: 0 };
+  const near = project(...onDesk(0), view);
+  const far = project(...onDesk(Math.PI), view);
+  assert.ok(near[1] > far[1] + 0.3, 'the near rim of the desk is not below the far rim: the desk is seen edge on');
+  assert.ok(far[1] > project(...MIDDLE, view)[1], 'the desk is not under the brain');
+  // A desk is wider than what stands on it: turned any way, the brain never overhangs its sides.
+  let widest = 0;
+  for (let turn = 0; turn < 24; turn += 1) {
+    const turned = { ...view, yaw: (turn / 24) * Math.PI * 2 };
+    for (let i = 0; i < brain.count; i += 1) widest = Math.max(widest, Math.abs(project(brain.at[i * 3], brain.at[i * 3 + 1], brain.at[i * 3 + 2], turned)[0]));
+  }
+  const side = Math.max(...Array.from({ length: 96 }, (_, step) => project(...onDesk((step / 96) * Math.PI * 2), view)[0]));
+  assert.ok(side > widest * 1.05, `the desk reaches ${side} to the side and the brain ${widest}`);
+});
+
+test('the figure fits its frame: the brain, turned any way, and the whole desk are inside it, and it is as large as that allows', () => {
+  const P = [0, 0, 0, 0];
+  for (const [width, height] of [[755, 535], [640, 420], [358, 390], [900, 300], [300, 900]]) {
+    const frame = frameFor(width, height);
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+    const take = (x, y, z, view) => {
+      project(x, y, z, view, P);
+      left = Math.min(left, P[0]);
+      right = Math.max(right, P[0]);
+      top = Math.min(top, P[1]);
+      bottom = Math.max(bottom, P[1]);
+    };
+    for (let turn = 0; turn < 24; turn += 1) {
+      const view = { ...LOOK, ...frame, yaw: (turn / 24) * Math.PI * 2 };
+      for (let i = 0; i < brain.count; i += 1) take(brain.at[i * 3], brain.at[i * 3 + 1], brain.at[i * 3 + 2], view);
+    }
+    for (let step = 0; step < 96; step += 1) take(...onDesk((step / 96) * Math.PI * 2), { ...LOOK, ...frame, yaw: 0 });
+    const what = `in a frame ${width} by ${height}`;
+    assert.ok(left >= 0 && right <= width, `${what} the figure runs from ${left} to ${right} across`);
+    assert.ok(top >= 0 && bottom <= height, `${what} the figure runs from ${top} to ${bottom} down`);
+    // As large as fits, with a little air: one way or the other it all but fills the frame.
+    const filled = Math.max((right - left) / width, (bottom - top) / height);
+    assert.ok(filled > 0.86, `${what} the figure fills only ${filled} of it`);
+    // And it stands in the middle of the frame, from side to side.
+    assert.ok(Math.abs((left + right) / 2 - width / 2) < width * 0.03, `${what} the figure is off to one side`);
+    assert.ok(Math.abs((top + bottom) / 2 - height / 2) < height * 0.06, `${what} the figure is too high or too low`);
+  }
+  assert.ok(FIGURE.side > 0 && FIGURE.up > 0 && FIGURE.down > 0);
+  assert.throws(() => frameFor(0, 100), /no room/);
+});
+
+test('a release nears the gate as it goes, is there while it waits, and nothing else nears it at all', () => {
+  const floor = createFloor({ lanes: 5, random: () => 0.5 });
+  let last = 0;
+  let seen = 0;
+  for (let i = 0; i < 600 && !floor.waiting; i += 1) {
+    floor.step(1 / 30);
+    const release = floor.jobs.find((job) => job.kind === 'Release');
+    if (!release) continue;
+    const now = approach(release);
+    assert.ok(now >= last && now >= 0 && now <= 1, `${now} after ${last}`);
+    last = now;
+    seen += 1;
+  }
+  assert.ok(seen > 10, 'no release was followed');
+  assert.equal(approach(floor.waiting), 1);
+  assert.equal(approach({ id: 1, at: 0, kind: 'Release', waiting: false }), 0);
+  assert.ok(Math.abs(approach({ id: 1, at: GATE / 2, kind: 'Release', waiting: false }) - 0.5) < 1e-12);
+  assert.equal(approach({ id: 1, at: GATE + 0.5, kind: 'Release', waiting: false }), 1, 'an approved release has passed the gate');
+  for (const job of floor.jobs) if (job.kind !== 'Release') assert.equal(approach(job), 0);
+});
+
 test('each stage has its own region on the surface, on alternate sides, in the floor\'s order', () => {
   assert.deepEqual(REGIONS.map((region) => region.stage), [...STAGES]);
   REGIONS.forEach((region, i) => {
@@ -68,7 +284,6 @@ test('each stage has its own region on the surface, on alternate sides, in the f
   });
   assert.equal(centreOf(-1), ORCHESTRATOR);
   assert.throws(() => centreOf(4), RangeError);
-  assert.ok(YOU[1] < Math.min(...REGIONS.map((region) => region.centre[1])) - 0.2, 'the person is above the brain');
 });
 
 test('every region lights a patch of the brain, and no point belongs to two', () => {
@@ -164,6 +379,45 @@ test('a point is drawn larger near the viewer than far away, and a whole turn br
   // Turned a quarter, a point on the right comes round to the front, and one on the left goes behind.
   assert.ok(project(0.5, 0, 0, { ...view, yaw: Math.PI / 2 })[3] < -0.4);
   assert.ok(project(-0.5, 0, 0, { ...view, yaw: Math.PI / 2 })[3] > 0.4);
+});
+
+test('the turn handed to the graphics card is the turn every other point is given', () => {
+  // js/hub-cloud.js turns the cloud on the GPU with these nine numbers; jobs, names and the desk are
+  // turned by `project`. If the two disagreed, the lights would drift off the brain as it turned.
+  const random = seeded(7);
+  for (let n = 0; n < 200; n += 1) {
+    const view = { yaw: random() * 12 - 6, pitch: random() * 2 - 1, scale: 1, x: 0, y: 0 };
+    const p = [random() * 2 - 1, random() * 2 - 1, random() * 2 - 1];
+    const [sx, sy, near, depth] = project(...p, view);
+    const rows = turning(view);
+    assert.equal(rows.length, 9);
+    const turned = [0, 1, 2].map((row) => rows[row * 3] * p[0] + rows[row * 3 + 1] * p[1] + rows[row * 3 + 2] * p[2]);
+    assert.ok(Math.abs(turned[0] * near - sx) < 1e-6 && Math.abs(turned[1] * near - sy) < 1e-6, `across and down differ at yaw ${view.yaw}, pitch ${view.pitch}`);
+    assert.ok(Math.abs(turned[2] - depth) < 1e-6, 'away differs');
+    // The same turn says which way a surface faces.
+    const length = Math.hypot(...p);
+    const normal = p.map((part) => part / length);
+    const away = rows[6] * normal[0] + rows[7] * normal[1] + rows[8] * normal[2];
+    assert.ok(Math.abs(Math.abs(away) - facing(...normal, view)) < 1e-6, 'facing differs');
+  }
+  const kept = new Float32Array(9);
+  assert.equal(turning({ yaw: 0.3, pitch: 0.1 }, kept), kept, 'it fills the array it is given');
+});
+
+test('the names stand clear of the brain: no point of it, turned any way, is outside the plate they keep off', () => {
+  const cortex = buildCortex(undefined, 2);
+  const P = [0, 0, 0, 0];
+  let worst = 0;
+  for (let turn = 0; turn < 36; turn += 1) {
+    const view = { yaw: (turn / 36) * TAU, pitch: LOOK.pitch, scale: 1, x: 0, y: 0 };
+    for (let i = 0; i < cortex.count; i += 1) {
+      project(cortex.at[i * 3], cortex.at[i * 3 + 1], cortex.at[i * 3 + 2], view, P);
+      worst = Math.max(worst, Math.hypot(P[0] / PLATE.across, (P[1] - PLATE.low) / PLATE.down));
+    }
+  }
+  assert.ok(worst < 1, `a point of the brain is ${worst} of the way out to the plate's edge`);
+  // And not so large that a name is pushed off the brain it names.
+  assert.ok(worst > 0.9, `the plate is loose: the brain reaches only ${worst} of the way to its edge`);
 });
 
 test('the rim of the brain is where the surface turns side-on', () => {

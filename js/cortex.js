@@ -5,8 +5,9 @@
 // (tests/cortex.test.mjs).
 //
 // The anatomy is the Hub's own: its Cortex view draws the orchestration as a
-// brain made of this point cloud. Two hemispheres with folds and a dark fissure
-// between them, temporal lobes, a cerebellum with its folia, and a brainstem.
+// brain made of this point cloud. Two hemispheres with winding folds and a dark
+// fissure between them, temporal lobes, a cerebellum with its folia, and a short
+// brainstem. It stands over a desk: the one desk the whole floor is run from.
 // Screen y points down, so "up" is negative y; the front of the brain is -z.
 
 import { GATE, STAGES } from './floor.js';
@@ -33,77 +34,161 @@ function direction(random) {
   return [ring * Math.cos(angle), z, ring * Math.sin(angle)];
 }
 
-// The hemispheres: ellipsoids either side of the midline.
-const HEMI = Object.freeze({ offset: 0.37, wide: 0.36, tall: 0.5, deep: 0.86, lift: -0.1 });
+const normalise = (v) => {
+  const length = Math.hypot(...v);
+  return v.map((part) => part / length);
+};
 
-/** The folds of the cortex: how far a point stands out from the smooth shell, from -1.6 to 1.6. */
+// The shells the brain is made of. Each is an ellipsoid: `wide`, `tall` and `deep` are its half
+// sizes across, up and front to back.
+// The hemispheres stand either side of the midline, and their undersides are pressed flat.
+const HEMI = Object.freeze({ offset: 0.37, wide: 0.36, tall: 0.5, deep: 0.86, lift: -0.1, floor: 0.2, flat: 0.35 });
+// The temporal lobes: under each hemisphere, towards the front.
+const TEMPORAL = Object.freeze({ offset: 0.5, y: 0.2, z: -0.14, wide: 0.22, tall: 0.15, deep: 0.4 });
+// The cerebellum: under the back of the brain.
+const CEREBELLUM = Object.freeze({ y: 0.33, z: 0.6, wide: 0.48, tall: 0.17, deep: 0.26 });
+// The brainstem: a short cone going down from the middle, leaning back a little.
+const STEM = Object.freeze({ top: 0.2, long: 0.42, z: 0.24, lean: 0.07, thick: 0.13, thin: 0.075 });
+
+/**
+ * How far up the side of a fold a point of the cortex stands: 0 at the bottom of a groove, 1
+ * anywhere on a crest. The grooves are where a winding surface (a gyroid, bent out of true so
+ * that it never repeats) cuts through the brain, so on its surface they are thin lines that
+ * wander, branch and meet, with broad crests between: the look of a cortex.
+ */
 export function fold(x, y, z) {
-  return Math.sin(x * 14 + 1.7) * Math.sin(y * 16 + 0.3) * Math.sin(z * 12 + 2.2) + 0.6 * Math.sin(x * 23 + y * 19 + z * 7 + 0.4);
+  const u = x + 0.05 * Math.sin(y * 7.3 + 1.1) + 0.035 * Math.sin(z * 11.9 + 4);
+  const v = y + 0.05 * Math.sin(z * 6.7 + 2.6) + 0.035 * Math.sin(x * 12.7 + 0.8);
+  const w = z + 0.05 * Math.sin(x * 7.9 + 5.2) + 0.035 * Math.sin(y * 10.3 + 3.1);
+  const winding = Math.sin(u * FOLDS) * Math.cos(v * FOLDS) + Math.sin(v * FOLDS) * Math.cos(w * FOLDS) + Math.sin(w * FOLDS) * Math.cos(u * FOLDS);
+  const out = Math.min(1, Math.abs(winding) / GROOVE);
+  return out * out * (3 - 2 * out);
 }
+const FOLDS = 15.5; // how tightly the folds are packed: about eleven across the length of the brain
+const GROOVE = 0.46; // how wide a groove is, against the crests either side of it
 
-/** A point on one hemisphere (`side` -1 left, 1 right) in direction `d`, `reach` of the way out (1 is the surface). */
+/**
+ * A point on one hemisphere (`side` -1 left, 1 right) in direction `d`, `reach` of the way out
+ * (1 is the surface). A brain is widest behind its middle: it narrows to the front, and a
+ * little to the back.
+ */
 export function surface(side, d, reach = 1) {
-  const x = side * HEMI.offset + d[0] * HEMI.wide * reach;
+  const taper = 1 - 0.14 * Math.max(0, -d[2]) ** 2 - 0.05 * Math.max(0, d[2]) ** 2;
+  const x = (side * HEMI.offset + d[0] * HEMI.wide * reach) * taper;
   let y = HEMI.lift + d[1] * HEMI.tall * reach;
   const z = d[2] * HEMI.deep * reach;
-  if (y > 0.2) y = 0.2 + (y - 0.2) * 0.35; // the underside is flattened
+  if (y > HEMI.floor) y = HEMI.floor + (y - HEMI.floor) * HEMI.flat; // the underside is flattened
   return [x, y, z];
+}
+
+/** Whether a point lies inside a hemisphere, by more than a sliver. */
+function insideHemisphere(x, y, z) {
+  const raised = y > HEMI.floor ? HEMI.floor + (y - HEMI.floor) / HEMI.flat : y; // undo the flattening
+  const across = (Math.abs(x) - HEMI.offset) / HEMI.wide;
+  return Math.hypot(across, (raised - HEMI.lift) / HEMI.tall, z / HEMI.deep) < 0.94;
+}
+
+/** Whether a point lies inside a temporal lobe, by more than a sliver. */
+function insideTemporal(x, y, z) {
+  return Math.hypot((Math.abs(x) - TEMPORAL.offset) / TEMPORAL.wide, (y - TEMPORAL.y) / TEMPORAL.tall, (z - TEMPORAL.z) / TEMPORAL.deep) < 0.94;
+}
+
+/**
+ * Whether to keep a try in direction `d` on an ellipsoid, so that the points lie evenly over
+ * it. Directions spread evenly over a ball land crowded at the narrow ends of an ellipsoid:
+ * a try is kept as often as the patch of surface it stands for is large.
+ */
+function spreadEvenly(d, wide, tall, deep, random) {
+  const patch = Math.hypot(tall * deep * d[0], wide * deep * d[1], wide * tall * d[2]);
+  return random() * Math.max(tall * deep, wide * deep, wide * tall) < patch;
 }
 
 /** Parts of the brain, for colouring and for the folds' pattern. */
 export const PART = Object.freeze({ cortex: 0, cerebellum: 1, stem: 2 });
 
+// How many tries each part gets in a cloud of the plainest density. About half the tries on the
+// cortex come to nothing: in a groove, on the wall of the fissure, or buried in another part.
+const TRIES = Object.freeze({ hemispheres: 6000, temporal: 1240, cerebellum: 1440, stem: 360 });
+
 /**
  * The brain as a cloud of points.
- * @returns {{ count: number, at: Float32Array, normal: Float32Array, fold: Float32Array, part: Uint8Array }}
- *   `at` and `normal` hold x, y, z for each point in turn.
+ * @param {() => number} [random]
+ * @param {number} [density] 1 is a cloud light enough to draw point by point on a plain canvas
+ *   (about 3,900 points); more is the same brain with that many times the points.
+ * @returns {{ count: number, at: Float32Array, normal: Float32Array, fold: Float32Array, part: Uint8Array, own: Float32Array }}
+ *   `at` and `normal` hold x, y, z for each point in turn; `normal` is the way its surface faces,
+ *   `fold` how far up its fold it stands (0 to 1), and `own` a number of its own from 0 up to 1,
+ *   so that points can do things each in its own time.
  */
-export function buildCortex(random = seeded(42)) {
+export function buildCortex(random = seeded(42), density = 1) {
+  if (!(density > 0)) throw new RangeError(`A cloud needs some points: density ${density}`);
   const at = [];
   const normal = [];
   const folds = [];
   const part = [];
-  const push = (point, d, height, kind) => {
+  const own = [];
+  const push = (point, facing, height, kind) => {
     at.push(...point);
-    normal.push(...d);
+    normal.push(...normalise(facing));
     folds.push(height);
     part.push(kind);
+    own.push(random());
   };
+  const tries = (name) => Math.round(TRIES[name] * density);
 
-  for (let i = 0; i < 3000; i += 1) {
+  for (let i = tries('hemispheres'); i > 0; i -= 1) {
     const d = direction(random);
     const side = random() < 0.5 ? -1 : 1;
+    if (!spreadEvenly(d, HEMI.wide, HEMI.tall, HEMI.deep, random)) continue;
     // The inner wall of each hemisphere stays mostly dark: the fissure between them.
     if (d[0] * side < -0.5 && random() < 0.85) continue;
-    const height = fold(side * HEMI.offset + d[0] * HEMI.wide, d[1], d[2]);
-    push(surface(side, d, 1 + 0.035 * height), d, height, PART.cortex);
+    const smooth = surface(side, d);
+    if (insideTemporal(...smooth)) continue;
+    const height = fold(...smooth);
+    if (random() > 0.08 + 0.92 * height) continue; // a groove holds few points, so it draws as a dark line
+    const under = HEMI.lift + d[1] * HEMI.tall > HEMI.floor;
+    push(surface(side, d, 1 - 0.035 * (1 - height)), [d[0] / HEMI.wide, d[1] / (HEMI.tall * (under ? HEMI.flat : 1)), d[2] / HEMI.deep], height, PART.cortex);
   }
-  for (let i = 0; i < 520; i += 1) {
+  for (let i = tries('temporal'); i > 0; i -= 1) {
     const d = direction(random);
     const side = random() < 0.5 ? -1 : 1;
-    if (d[0] * side < -0.2) continue;
-    const height = fold(d[0] * 3, d[1] * 3, d[2] * 3);
-    const reach = 1 + 0.04 * height;
-    push([side * 0.5 + d[0] * 0.22 * reach, 0.2 + d[1] * 0.15 * reach, -0.14 + d[2] * 0.4 * reach], d, height, PART.cortex);
+    if (!spreadEvenly(d, TEMPORAL.wide, TEMPORAL.tall, TEMPORAL.deep, random)) continue;
+    const point = (reach) => [side * TEMPORAL.offset + d[0] * TEMPORAL.wide * reach, TEMPORAL.y + d[1] * TEMPORAL.tall * reach, TEMPORAL.z + d[2] * TEMPORAL.deep * reach];
+    const smooth = point(1);
+    if (insideHemisphere(...smooth)) continue;
+    const height = fold(...smooth);
+    if (random() > 0.08 + 0.92 * height) continue;
+    push(point(1 - 0.05 * (1 - height)), [d[0] / TEMPORAL.wide, d[1] / TEMPORAL.tall, d[2] / TEMPORAL.deep], height, PART.cortex);
   }
-  for (let i = 0; i < 620; i += 1) {
+  for (let i = tries('cerebellum'); i > 0; i -= 1) {
     const d = direction(random);
-    if (d[2] < -0.3 && d[1] < 0.2) continue;
-    const y = 0.33 + d[1] * 0.17;
-    push([d[0] * 0.48, y, 0.6 + d[2] * 0.26], d, Math.sin(y * 95), PART.cerebellum);
+    if (!spreadEvenly(d, CEREBELLUM.wide, CEREBELLUM.tall, CEREBELLUM.deep, random)) continue;
+    const point = [d[0] * CEREBELLUM.wide, CEREBELLUM.y + d[1] * CEREBELLUM.tall, CEREBELLUM.z + d[2] * CEREBELLUM.deep];
+    if (insideHemisphere(...point)) continue;
+    // Its folia: fine leaves lying one on another, level from side to side.
+    const height = 0.5 + 0.5 * Math.sin(point[1] * 95);
+    if (random() > 0.15 + 0.85 * height) continue;
+    push(point, [d[0] / CEREBELLUM.wide, d[1] / CEREBELLUM.tall, d[2] / CEREBELLUM.deep], height, PART.cerebellum);
   }
-  for (let i = 0; i < 360; i += 1) {
+  for (let i = tries('stem'); i > 0; i -= 1) {
     const down = random();
     const angle = random() * TAU;
-    const radius = 0.115 - down * 0.03;
+    const radius = STEM.thick + (STEM.thin - STEM.thick) * down;
     push(
-      [Math.cos(angle) * radius, 0.22 + down * 0.78, 0.28 + Math.sin(angle) * radius + down * 0.06],
+      [Math.cos(angle) * radius, STEM.top + down * STEM.long, STEM.z + Math.sin(angle) * radius + down * STEM.lean],
       [Math.cos(angle), 0, Math.sin(angle)],
-      Math.sin(down * 40),
+      0.6 + 0.25 * Math.sin(down * 30),
       PART.stem,
     );
   }
-  return { count: folds.length, at: new Float32Array(at), normal: new Float32Array(normal), fold: new Float32Array(folds), part: new Uint8Array(part) };
+  return {
+    count: folds.length,
+    at: new Float32Array(at),
+    normal: new Float32Array(normal),
+    fold: new Float32Array(folds),
+    part: new Uint8Array(part),
+    own: new Float32Array(own),
+  };
 }
 
 // Where each stage lives: a lobe, on alternate hemispheres, so a job crosses the midline as it goes.
@@ -114,18 +199,12 @@ const LOBES = Object.freeze([
   { stage: 'Merge', side: 1, d: [0.36, -0.22, 0.9] }, // occipital
 ]);
 
-const normalise = (v) => {
-  const length = Math.hypot(...v);
-  return v.map((part) => part / length);
-};
-
 /**
  * The places a job passes: the orchestrator at the centre (index -1), then a
- * region for each stage, in order. `you` is the person a release waits for,
- * above the brain.
+ * region for each stage, in order. The person a release waits for is not in
+ * the brain at all: it is whoever is reading the page (js/hub.js).
  */
 export const ORCHESTRATOR = Object.freeze([0, -0.02, 0.06]);
-export const YOU = Object.freeze([0, -0.9, 0.02]);
 export const REGIONS = Object.freeze(
   LOBES.map(({ stage, side, d }) => {
     const out = normalise([side * d[0], d[1], d[2]]);
@@ -213,6 +292,15 @@ export function placeOf(job) {
   return sit(stage);
 }
 
+/**
+ * How near a release is to the gate: 0 as it joins the queue, 1 once it is there, waiting or
+ * let through. Nothing else is ever stopped at the gate, so any other job is 0.
+ */
+export function approach(job) {
+  if (job.kind !== 'Release') return 0;
+  return Math.min(1, Math.max(0, job.at / GATE));
+}
+
 /** The point in the brain where a job is, from `placeOf`. */
 export function pointOf(job, out = [0, 0, 0]) {
   const { from, to, t } = placeOf(job);
@@ -256,6 +344,28 @@ export function project(px, py, pz, view, out = [0, 0, 0, 0]) {
   return out;
 }
 
+/**
+ * The turn a view gives every point, as the nine numbers of a matrix, a row at a time: across,
+ * down and away from the viewer. It is the turn `project` makes, for the graphics card, which
+ * turns the whole cloud itself (js/hub-cloud.js).
+ */
+export function turning(view, out = new Float32Array(9)) {
+  const cy = Math.cos(view.yaw);
+  const sy = Math.sin(view.yaw);
+  const cp = Math.cos(view.pitch);
+  const sp = Math.sin(view.pitch);
+  out[0] = cy;
+  out[1] = 0;
+  out[2] = sy;
+  out[3] = sy * sp;
+  out[4] = cp;
+  out[5] = -cy * sp;
+  out[6] = -sy * cp;
+  out[7] = sp;
+  out[8] = cy * cp;
+  return out;
+}
+
 /** Which way a surface faces once turned: 1 straight at the viewer or away, 0 side-on (where the rim glows). */
 export function facing(nx, ny, nz, view) {
   const z1 = -nx * Math.sin(view.yaw) + nz * Math.cos(view.yaw);
@@ -292,6 +402,75 @@ export const VERDICTS = Object.freeze([
   { verdict: 'fix', to: 1 }, // back to be built again
   { verdict: 'ask', to: 'you' }, // a question only a person can answer
 ]);
+
+/**
+ * The desk the brain stands over: a disc lying flat under it. The accounts the work runs on sit
+ * along its near rim.
+ */
+export const DESK = Object.freeze({ y: 0.7, radius: 1.08 });
+
+/**
+ * The band engraved round the desk: strands that weave in and out between two rings, as the
+ * guilloché on a banknote does. `inner` and `outer` are shares of the desk's radius; each strand
+ * swings between them `lobes` times in a turn, and the strands are spread evenly through one swing.
+ */
+export const BAND = Object.freeze({ inner: 0.74, outer: 0.93, strands: 5, lobes: 9 });
+
+/**
+ * How far out strand `strand` of the band runs at `angle` round the desk, as a share of the
+ * desk's radius. `drift` slides the whole weave round its rings.
+ */
+export function bandAt(strand, angle, drift = 0) {
+  const middle = (BAND.inner + BAND.outer) / 2;
+  const swing = (BAND.outer - BAND.inner) / 2;
+  return middle + swing * Math.sin(BAND.lobes * angle + (strand / BAND.strands) * TAU + drift);
+}
+
+/**
+ * Where the brain is looked at from. Turned well to one side: it is first seen (and, with motion
+ * reduced, only ever seen) in three-quarter profile, where its folds and both of its halves read
+ * as one brain; nearer head-on the halves stand apart like two things. And from a little above,
+ * so that the desk under it is seen as a desk and not as a line.
+ */
+export const LOOK = Object.freeze({ yaw: 1.15, pitch: 0.24 });
+
+/**
+ * How far the whole figure reaches from the middle of the brain, seen from `LOOK`, in units of
+ * the brain: to either side (the desk's rim), up (the crown of the brain) and down (the desk's
+ * near rim). Each with a little air. tests/cortex.test.mjs checks that nothing is outside them.
+ */
+export const FIGURE = Object.freeze({ side: 1.12, up: 0.68, down: 1.34 });
+
+/**
+ * The brain as its names see it: an ellipse they keep outside of, in units of the brain, its
+ * middle `low` below the brain's own. The brain is fuller at its shoulders than an ellipse of its
+ * own width and height, so the plate is larger than both: tests/cortex.test.mjs checks that no
+ * point of the brain, turned any way, is outside it.
+ */
+export const PLATE = Object.freeze({ across: 1.06, down: 0.95, low: 0.08 });
+
+/**
+ * The view that sets the whole figure, as large as it will go, in a frame `width` by `height`.
+ * @returns {{ scale: number, x: number, y: number }} to go with `LOOK` as a view for `project`
+ */
+export function frameFor(width, height) {
+  if (!(width > 0 && height > 0)) throw new RangeError(`There is no room for the brain in a frame ${width} by ${height}.`);
+  const scale = Math.min(width / (2 * FIGURE.side), height / (FIGURE.up + FIGURE.down));
+  return { scale, x: width / 2, y: height / 2 + ((FIGURE.up - FIGURE.down) / 2) * scale };
+}
+
+/** Which way round the desk account `index` of `count` sits: an angle from straight towards the viewer, in radians. */
+export function seatOf(index, count, apart = 0.5) {
+  return (index - (count - 1) / 2) * apart;
+}
+
+/** The point on the desk at `angle` round from straight towards the viewer, `reach` of the way out to its rim. */
+export function onDesk(angle, reach = 1, out = [0, 0, 0]) {
+  out[0] = Math.sin(angle) * DESK.radius * reach;
+  out[1] = DESK.y;
+  out[2] = -Math.cos(angle) * DESK.radius * reach;
+  return out;
+}
 
 /**
  * The accounts the work runs on. Jobs draw on one account until it is full;

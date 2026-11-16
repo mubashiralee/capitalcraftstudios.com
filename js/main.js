@@ -989,7 +989,7 @@ function boot() {
 
   // The two systems. If either cannot start, what the page came with stays: the four stages, the statement.
   const hub = start('The Orchestration Hub floor', () =>
-    startHub({ stage: one('[data-hub]'), button: one('[data-hub-approve]'), status: one('[data-hub-status]') }),
+    startHub({ slab: one('[data-hub-slab]'), stage: one('[data-hub]'), button: one('[data-hub-approve]'), status: one('[data-hub-status]') }),
   );
   if (hub) one('[data-hub-controls]').hidden = false;
   start('The CapitalCraft Books card', () => startBooks({ stage: one('[data-books]'), status: one('[data-books-status]') }));

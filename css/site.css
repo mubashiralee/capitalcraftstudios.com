@@ -1907,16 +1907,17 @@ html:not(.has-plate) .speed {
 }
 
 .hub__slab {
+  position: relative; /* the scene is laid behind the whole of it, and its parts are measured from it (js/hub.js) */
+  isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-columns: minmax(0, 11fr) minmax(0, 13fr);
   grid-template-rows: 1fr auto auto 1fr;
   grid-template-areas:
     ". stage"
     "head stage"
     "body stage"
     ". stage";
-  column-gap: clamp(24px, 4vw, 64px);
-  align-self: center;
+  column-gap: clamp(20px, 3vw, 48px);
 }
 
 .hub__head {
@@ -1929,38 +1930,111 @@ html:not(.has-plate) .speed {
 
 .hub__body {
   grid-area: body;
-  margin-top: clamp(18px, 2.4vw, 30px);
+  margin-top: clamp(14px, 2.2vh, 26px);
 }
 
 .hub__text {
-  max-width: 28rem;
+  max-width: 30rem;
   color: #a3bcc7;
   text-wrap: pretty;
 }
 
 .hub__controls {
-  margin-top: clamp(20px, 2.6vw, 32px);
+  margin-top: clamp(18px, 2.8vh, 30px);
 }
 
+/* The button that lets a release through. It is the far end of a thread from the gate in the
+   brain (js/hub.js), and says how near a release is: an outline while nothing waits, filling as
+   one comes, solid amber when it is there to be approved, green as it goes through. */
 .btn--signal {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: transparent;
+  color: var(--held);
+  box-shadow: inset 0 0 0 1.5px rgb(255 181 71 / 0.42);
+  transition:
+    transform 160ms var(--ease-out),
+    color 260ms ease,
+    box-shadow 260ms ease;
+}
+
+/* Not faded like other buttons that cannot be used just now: its quiet look is its own. */
+.btn--signal[aria-disabled="true"] {
+  opacity: 1;
+}
+
+.hub__charge {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: var(--held);
+  opacity: 0.24;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition:
+    opacity 260ms ease,
+    background-color 260ms ease;
+}
+
+.btn--signal[data-state="idle"] {
+  color: rgb(255 181 71 / 0.72);
+}
+
+.btn--signal[data-state="armed"] {
   color: #2b1700;
+  box-shadow:
+    inset 0 0 0 1.5px var(--held),
+    0 0 0 5px rgb(255 181 71 / 0.14),
+    0 14px 34px -10px rgb(255 181 71 / 0.6);
+}
+
+.btn--signal[data-state="armed"] .hub__charge {
+  opacity: 1;
+}
+
+.btn--signal[data-state="cleared"] {
+  color: #05301d;
+  box-shadow:
+    inset 0 0 0 1.5px var(--clear),
+    0 0 0 5px rgb(98 219 160 / 0.14),
+    0 14px 34px -10px rgb(98 219 160 / 0.55);
+}
+
+.btn--signal[data-state="cleared"] .hub__charge {
+  background: var(--clear);
+  opacity: 1;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .btn--signal:not([aria-disabled="true"]):hover {
+  .btn--signal[data-state="armed"]:hover .hub__charge {
     background: #ffc978;
   }
 }
 
-/* The brain (js/hub.js). Without script, the four stages every job goes through. */
+/* Where the brain stands (js/hub.js). Without script, the four stages every job goes through.
+   It has no height of its own: it takes what the window leaves, so the sheet fits one window. */
 .hub__stage {
   position: relative;
   grid-area: stage;
-  align-self: center;
-  aspect-ratio: 1.12;
-  max-height: min(66vh, 640px);
   width: 100%;
+  min-height: clamp(300px, 42vh, 520px);
+}
+
+.hub__stage.is-live {
+  cursor: grab;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hub__stage.is-turning {
+  cursor: grabbing;
+}
+
+.hub__stage.is-pointing {
+  cursor: pointer;
 }
 
 .hub__stages {
@@ -1981,23 +2055,42 @@ html:not(.has-plate) .speed {
   border-left: 1px solid rgb(255 255 255 / 0.12);
 }
 
-.hub__brain {
+/* The picture: the desk, the brain and the work, one over another, behind the whole slab and a
+   little beyond it, so that light is never cut off at an edge. */
+.hub__scene {
+  position: absolute;
+  inset: -36px calc(-1 * var(--gutter));
+  z-index: -1;
+  pointer-events: none;
+}
+
+.hub__layer {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  cursor: grab;
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
 }
 
-.hub__brain.is-held {
-  cursor: grabbing;
+/* The names of the stages, set out round the brain as on an anatomical plate (js/callouts.js). */
+.hub__label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: #a9c2cd;
+  font-size: 0.75rem;
+  font-stretch: 112%;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  line-height: 20px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: color 320ms ease;
 }
 
-.hub__brain.is-pointing {
-  cursor: pointer;
+.hub__label[data-busy="true"] {
+  color: #f6fbfd;
 }
 
 /* The parts that explain themselves: a 44px target over each, drawn by the canvas beneath. */
@@ -2009,7 +2102,7 @@ html:not(.has-plate) .speed {
   height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: 22px;
   background: transparent;
   cursor: help;
   -webkit-tap-highlight-color: transparent;
@@ -2025,13 +2118,16 @@ html:not(.has-plate) .speed {
   top: 0;
   left: 0;
   z-index: 2;
-  width: var(--card-w, 260px);
-  padding: 14px 16px 15px;
-  border-radius: 14px;
-  background: color-mix(in oklab, var(--ground) 82%, #ffffff);
+  width: var(--card-w, 264px);
+  padding: 15px 17px 16px;
+  border-radius: 16px;
+  background: rgb(19 44 58 / 0.74);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.12),
-    0 18px 40px -18px rgb(0 0 0 / 0.7);
+    inset 0 0 0 1px rgb(255 255 255 / 0.13),
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 26px 50px -22px rgb(0 0 0 / 0.8);
   opacity: 0;
   pointer-events: none;
   transform: translate3d(var(--card-x, 0), var(--card-y, 0), 0) scale(0.96);
@@ -2047,7 +2143,7 @@ html:not(.has-plate) .speed {
 }
 
 .hub__card-name {
-  margin: 0 0 4px;
+  margin: 0 0 5px;
   color: #f6fbfd;
   font-size: var(--step-body);
   font-stretch: 108%;
@@ -2060,7 +2156,7 @@ html:not(.has-plate) .speed {
 
 .hub__card-text {
   margin: 0;
-  color: #a3bcc7;
+  color: #b3c8d1;
   font-size: var(--step-small);
   line-height: 1.45;
   text-wrap: pretty;
@@ -2071,8 +2167,8 @@ html:not(.has-plate) .speed {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px clamp(20px, 3vw, 44px);
-  margin: clamp(26px, 4.6vh, 52px) 0 0;
-  padding: 18px 0 0;
+  margin: clamp(18px, 3vh, 36px) 0 0;
+  padding: 16px 0 0;
   border-top: 1px solid var(--rule);
   list-style: none;
   color: #8aa6b3;
@@ -2100,16 +2196,17 @@ html:not(.has-plate) .speed {
   }
 
   .hub__stage {
-    aspect-ratio: 0.92;
-    margin-top: clamp(10px, 3vw, 20px);
+    min-height: 0;
+    aspect-ratio: 0.94;
+    margin-top: clamp(6px, 2vw, 16px);
   }
 
-  /* The button comes straight after the floor it works, ahead of the words. */
+  /* The button comes straight after the brain it answers, ahead of the words. */
   .hub__body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    margin-top: 18px;
+    margin-top: 14px;
   }
 
   .hub__controls {
