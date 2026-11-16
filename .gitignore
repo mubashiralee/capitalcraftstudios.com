@@ -1,0 +1,5 @@
+# Working files that are not part of the site
+.DS_Store
+__pycache__/
+_site/
+.impeccable/hook.cache.json

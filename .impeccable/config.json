@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-15T14:12:20.659Z",
+        "reason": "Intentional: the proof lines beside each principle are ink that shows only under the UV lamp (the page's dark theme); the lamp button sits beside them. Part of the 'One of one' direction the owner chose. Contrast of all other text is checked by hand."
+      }
+    ]
+  }
+}

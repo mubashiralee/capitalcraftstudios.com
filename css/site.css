@@ -1,0 +1,2923 @@
+/* CapitalCraft Studios. One stylesheet, no build step.
+ *
+ * Two lights: daylight (the default) and UV. UV is the dark theme, and it also
+ * shows what daylight hides: the proof beside each principle, the fibres in the
+ * paper, the edition number engraved on the plate.
+ */
+
+@font-face {
+  font-family: "Mona Sans";
+  src: url("../fonts/mona-sans-latin-wdth-normal.woff2") format("woff2");
+  font-weight: 200 900;
+  font-stretch: 75% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Tokens ---------- */
+
+:root {
+  color-scheme: light;
+
+  --paper: #f5f7f4;
+  --paper-raised: #ffffff;
+  --ink: #0d1a14;
+  --ink-soft: #48554e;
+  --rule: rgb(13 26 20 / 0.15);
+  --rule-strong: rgb(13 26 20 / 0.32);
+  --focus: #1d2f7a;
+
+  /* The edition's two inks. main.js overwrites these for each edition. */
+  --ink-a: #12355b;
+  --ink-b: #0e6b66;
+  --accent: var(--ink-a);
+
+  /* The edition's fan of five inks, for the bands of lines. main.js sets
+     --edition-1 to --edition-5; these are the stand-ins until it has. */
+  --ink-1: var(--edition-1, #12355b);
+  --ink-2: var(--edition-2, #10506d);
+  --ink-3: var(--edition-3, #0e6b66);
+  --ink-4: var(--edition-4, #256a45);
+  --ink-5: var(--edition-5, #55641f);
+
+  /* The desk the sheets lie on. It shows round a sheet that has slipped back,
+     and it is the ground of the footer. */
+  --desk: #0a120e;
+  /* How far a docked sheet stands above the window, and the room the fixed
+     header needs. Both are nothing until the sheets stack (see "Sheets"). */
+  --lip: 0px;
+  --head-room: clamp(28px, 5vw, 72px);
+
+  /* Ink that only shows under UV. In daylight it is a trace you can barely see. */
+  --hidden: rgb(13 26 20 / 0.055);
+  --hidden-glow: none;
+
+  /* The hot tip of a pen that is drawing a line (the plate's pens are the same colour: js/plate.js). */
+  --pen: #eb571a;
+  --fibre-opacity: 0.16;
+
+  --font: "Mona Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  --gutter: clamp(16px, 4vw, 44px);
+  --wide: 1360px;
+  --section: clamp(72px, 11vw, 160px);
+
+  --step-small: 0.875rem;
+  --step-body: 1.0625rem;
+  --step-lede: clamp(1.125rem, 0.9rem + 0.8vw, 1.375rem);
+  --step-3: clamp(1.25rem, 1rem + 0.9vw, 1.6rem);
+  --step-2: clamp(1.5rem, 1rem + 1.9vw, 2.4rem);
+  --step-1: clamp(2.1rem, 1.1rem + 4.2vw, 4.25rem);
+  --step-0: clamp(2.9rem, 0.6rem + 8.4vw, 7.5rem);
+}
+
+:root[data-theme="uv"] {
+  color-scheme: dark;
+
+  --paper: #0c0820;
+  --paper-raised: #171138;
+  --ink: #ece9ff;
+  --ink-soft: #aca6da;
+  --rule: rgb(236 233 255 / 0.16);
+  --rule-strong: rgb(236 233 255 / 0.36);
+  --focus: #ff8a4c;
+
+  --accent: #b6c0ff;
+  --hidden: #ff8a4c;
+  --hidden-glow: 0 0 22px rgb(255 138 76 / 0.5);
+  --pen: #ffd69e;
+  --fibre-opacity: 0.95;
+
+  --ink-1: color-mix(in oklab, var(--edition-1, #12355b) 36%, #cdd4ff);
+  --ink-2: color-mix(in oklab, var(--edition-2, #10506d) 36%, #cdd4ff);
+  --ink-3: color-mix(in oklab, var(--edition-3, #0e6b66) 36%, #cdd4ff);
+  --ink-4: color-mix(in oklab, var(--edition-4, #256a45) 36%, #cdd4ff);
+  --ink-5: color-mix(in oklab, var(--edition-5, #55641f) 36%, #cdd4ff);
+  --desk: #04020c;
+}
+
+:root.has-stack {
+  --lip: clamp(20px, 2.4vw, 34px);
+  --head-room: 60px;
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--step-body);
+  font-stretch: 100%;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+dl,
+dd {
+  margin: 0;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+img,
+svg,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.2em;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+[id] {
+  scroll-margin-top: 24px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip {
+  position: absolute;
+  left: var(--gutter);
+  top: 12px;
+  z-index: 20;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip:focus-visible {
+  transform: none;
+}
+
+h1,
+h2 {
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.94;
+  text-wrap: balance;
+}
+
+h2 {
+  font-size: var(--step-1);
+}
+
+.no-js [data-lamp] {
+  display: none; /* the lamp needs script */
+}
+
+h3 {
+  font-size: var(--step-3);
+  font-stretch: 112%;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-stretch: 108%;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 160ms var(--ease-out), background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn--solid {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn--line {
+  box-shadow: inset 0 0 0 1.5px var(--rule-strong);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--rule-strong);
+  font-size: 0.9375rem;
+  font-stretch: 106%;
+  font-weight: 600;
+  transition: transform 160ms var(--ease-out), background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--solid:hover {
+    background: var(--accent);
+  }
+
+  .btn--line:hover,
+  .chip:hover {
+    box-shadow: inset 0 0 0 1.5px var(--ink);
+  }
+
+  :root[data-theme="uv"] .btn--solid:hover {
+    background: var(--hidden);
+    color: #1b0d04;
+  }
+}
+
+/* ---------- Header and dock ----------
+   At the top of the page: the logo, the chapter links and the lamp. Once the
+   page has moved, the logo and lamp step back and the links become the dock:
+   one capsule that stays with you, with the bold C and the lamp inside it. */
+
+.top {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  max-width: calc(var(--wide) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding: 14px var(--gutter);
+  pointer-events: none; /* it floats over the page: only its own controls take the pointer */
+}
+
+.top > * {
+  pointer-events: auto;
+}
+
+.has-stack .top {
+  position: fixed;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: none;
+  transition: opacity 220ms ease, translate 260ms var(--ease-out), visibility 0s;
+}
+
+/* The logo: one large C shared by "apital" and "raft". Its letters are paths,
+   so it waits on no font, and it takes the colour of the text. */
+.brand__logo {
+  width: auto;
+  height: 2.75rem;
+  aspect-ratio: 4870 / 1920;
+  fill: currentColor;
+}
+
+.lamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--rule-strong);
+  font-size: 0.9375rem;
+  font-stretch: 106%;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: transform 160ms var(--ease-out), background-color 200ms ease, box-shadow 200ms ease, opacity 220ms ease,
+    translate 260ms var(--ease-out), visibility 0s;
+}
+
+.lamp:active {
+  transform: scale(0.97);
+}
+
+.lamp__icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.6;
+}
+
+[data-lamp][aria-pressed="true"] {
+  background: rgb(255 138 76 / 0.16);
+  box-shadow: inset 0 0 0 1.5px var(--hidden);
+}
+
+[data-lamp][aria-pressed="true"] .lamp__icon circle {
+  fill: var(--hidden);
+  stroke: var(--hidden);
+}
+
+.top[data-scrolled="true"] .brand,
+.top[data-scrolled="true"] .lamp {
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 -12px;
+  transition: opacity 160ms ease, translate 160ms ease, visibility 0s 160ms;
+}
+
+.dock {
+  position: absolute;
+  left: 50%;
+  top: 11px;
+  display: flex;
+  align-items: center;
+  max-width: calc(100% - 2 * var(--gutter));
+  padding: 3px;
+  border-radius: 999px;
+  translate: -50% 0;
+  transition: background-color 280ms ease, box-shadow 280ms ease, opacity 220ms ease, visibility 0s;
+}
+
+.top[data-scrolled="true"] .dock {
+  background: color-mix(in srgb, var(--paper-raised) 76%, transparent);
+  box-shadow: inset 0 0 0 1px var(--rule), 0 14px 34px -16px rgb(0 0 0 / 0.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.7);
+  backdrop-filter: blur(20px) saturate(1.7);
+}
+
+.dock__rail {
+  position: relative;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  border-radius: 999px;
+}
+
+.dock__rail::-webkit-scrollbar {
+  display: none;
+}
+
+.dock__list {
+  display: flex;
+  width: max-content;
+}
+
+.dock__list a,
+.dock__list span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 15px;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-stretch: 104%;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* The lit copy: the same list in ink, cut down to the chapter you are in.
+   Moving the cut slides the light from one name to the next. */
+.dock__list--lit {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ink);
+  color: var(--paper);
+  pointer-events: none;
+  clip-path: inset(0 100% 0 0 round 999px);
+  transition: clip-path 460ms var(--ease-out);
+}
+
+.dock__home,
+.dock__lamp {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  opacity: 0;
+  visibility: hidden;
+  scale: 0.8;
+  transition: opacity 160ms ease, scale 200ms var(--ease-out), visibility 0s 160ms, background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.top[data-scrolled="true"] .dock__home,
+.top[data-scrolled="true"] .dock__lamp {
+  opacity: 1;
+  visibility: visible;
+  scale: 1;
+  transition: opacity 220ms ease 60ms, scale 320ms var(--ease-out) 60ms, visibility 0s, background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.top[data-scrolled="true"] .dock__home:active,
+.top[data-scrolled="true"] .dock__lamp:active {
+  scale: 0.93;
+}
+
+.dock__mark {
+  width: 18px;
+  height: auto;
+  fill: currentColor;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dock__list a:hover,
+  .dock__home:hover,
+  .dock__lamp:not([aria-pressed="true"]):hover {
+    background: color-mix(in srgb, var(--ink) 9%, transparent);
+  }
+
+  .lamp:not([aria-pressed="true"]):hover {
+    box-shadow: inset 0 0 0 1.5px var(--ink);
+  }
+}
+
+@media (max-width: 760px) {
+  /* No room for the links beside the logo: the dock arrives once the page has moved. */
+  .dock {
+    left: var(--gutter);
+    right: var(--gutter);
+    max-width: none;
+    translate: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: background-color 280ms ease, box-shadow 280ms ease, opacity 200ms ease, visibility 0s 200ms;
+  }
+
+  .top[data-scrolled="true"] .dock {
+    opacity: 1;
+    visibility: visible;
+    transition: background-color 280ms ease, box-shadow 280ms ease, opacity 220ms ease, visibility 0s;
+  }
+
+  .dock__rail {
+    flex: 1;
+    /* The names run off both ends of the rail; let them fade rather than stop dead. */
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  }
+
+  .dock__list a,
+  .dock__list span {
+    padding: 0 12px;
+  }
+
+  .no-js .dock {
+    display: none;
+  }
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  min-height: max(100svh, 680px);
+  overflow: clip;
+}
+
+.hero__plate,
+.hero__bodies,
+.hero__front {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero__plate {
+  z-index: 0;
+  /* The orbits run off the bottom of the hero; let them fade rather than stop dead. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 110px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 110px), transparent);
+}
+
+.hero__bodies {
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* The words stand in front of the plate. Where the seal's stone falls past them
+   (on a narrow screen they stand above the plate) main.js draws it again here. */
+.hero__front {
+  z-index: 3;
+  pointer-events: none;
+}
+
+html:not(.has-plate) .hero__plate,
+html:not(.has-plate) .hero__bodies,
+html:not(.has-plate) .hero__front {
+  display: none;
+}
+
+/* The seal is a button: pressing it redraws the plate. main.js lays this over the seal's stone. */
+.hero__seal {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 200ms ease;
+}
+
+@media (hover: hover) {
+  .hero__seal:hover {
+    box-shadow:
+      0 0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent),
+      0 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+}
+
+.hero__seal:active {
+  box-shadow: 0 0 0 1.5px var(--accent);
+  transition-duration: 60ms;
+}
+
+.hero__inner {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: 1fr auto;
+  column-gap: 20px;
+  width: 100%;
+  max-width: calc(var(--wide) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding: 104px var(--gutter) 36px;
+  pointer-events: none; /* so the bodies underneath stay clickable between the blocks */
+}
+
+.hero__inner > * {
+  pointer-events: auto;
+}
+
+.hero__copy {
+  grid-column: 1 / span 7;
+  grid-row: 1;
+  align-self: center;
+  padding-bottom: clamp(0px, 6vh, 72px);
+}
+
+h1 {
+  font-size: var(--step-0);
+  line-height: 0.9;
+}
+
+h1 .line {
+  display: block;
+}
+
+.lede {
+  max-width: 30ch;
+  margin-top: clamp(20px, 3vh, 34px);
+  color: var(--ink-soft);
+  font-size: var(--step-lede);
+  font-weight: 450;
+  line-height: 1.38;
+  text-wrap: pretty;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: clamp(22px, 3.4vh, 38px);
+}
+
+.hero__slot {
+  grid-column: 6 / -1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: end;
+  width: min(100%, 96vh);
+  aspect-ratio: 1 / 0.62;
+  pointer-events: none;
+}
+
+/* The still plate (no WebGL, or no script) sits face-on in the slot. */
+.hero__slot .still {
+  width: min(100%, 70vh);
+  height: auto;
+  margin-inline: auto;
+}
+
+html:not(.has-plate) .hero__slot {
+  aspect-ratio: auto;
+}
+
+.edition {
+  grid-column: 1 / span 6;
+  grid-row: 2;
+  align-self: end;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.no-js .edition {
+  display: none;
+}
+
+.edition__serial {
+  color: var(--accent);
+  font-stretch: 112%;
+  font-weight: 650;
+  line-height: 1;
+}
+
+/* Banknote serials climb in size from the first numeral to the last. */
+.serial {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5ch;
+  font-size: 1.0625rem;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0.03em;
+}
+
+.serial__digits {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.serial__digits span:nth-child(1) { font-size: 1em; }
+.serial__digits span:nth-child(2) { font-size: 1.12em; }
+.serial__digits span:nth-child(3) { font-size: 1.24em; }
+.serial__digits span:nth-child(4) { font-size: 1.36em; }
+.serial__digits span:nth-child(5) { font-size: 1.48em; }
+.serial__digits span:nth-child(6) { font-size: 1.6em; }
+
+.edition__note {
+  color: var(--ink-soft);
+  font-size: var(--step-small);
+}
+
+.edition__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 8px;
+}
+
+/* The speed bar: how fast the plate is drawn, and turns once it is. */
+.speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-left: 10px;
+  color: var(--ink-soft);
+  font-size: var(--step-small);
+  font-stretch: 106%;
+  font-weight: 600;
+}
+
+html:not(.has-plate) .speed {
+  display: none;
+}
+
+.speed__bar {
+  -webkit-appearance: none;
+  appearance: none;
+  width: clamp(112px, 12vw, 168px);
+  height: 44px;
+  margin: 0;
+  /* The notch in the middle marks normal speed. */
+  background: linear-gradient(var(--rule-strong), var(--rule-strong)) center / 1.5px 11px no-repeat;
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.speed__bar::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--rule-strong);
+}
+
+.speed__bar::-moz-range-track {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--rule-strong);
+}
+
+.speed__bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -8px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 5px var(--accent);
+  transition: transform 160ms var(--ease-out);
+}
+
+.speed__bar::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 5px var(--accent);
+}
+
+.speed__bar:active::-webkit-slider-thumb {
+  transform: scale(1.22);
+}
+
+.speed__bar:focus-visible {
+  outline-offset: -6px;
+}
+
+/* Bodies: the labelled dots that ride the orbits. Placed every frame by main.js. */
+.body {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  margin: -22px 0 0 -7px;
+  padding-right: 10px;
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-stretch: 108%;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  transform-origin: 7px 50%;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 260ms ease;
+  will-change: transform;
+}
+
+.body[data-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.body__dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 4px var(--accent);
+  transition: transform 200ms var(--ease-out);
+}
+
+.body--gem .body__dot {
+  box-shadow: inset 0 0 0 7px #12b76a;
+}
+
+.body__label {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .body:hover .body__dot {
+    transform: scale(1.35);
+  }
+
+  .body:hover .body__label {
+    background: var(--ink);
+    color: var(--paper);
+  }
+}
+
+@media (max-width: 899px) {
+  .hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    padding-top: 96px;
+  }
+
+  .hero__copy {
+    grid-column: 1;
+    grid-row: 1;
+    padding-bottom: 0;
+  }
+
+  .hero__slot {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: center;
+    width: min(100%, 560px);
+    aspect-ratio: 1 / 0.74;
+    margin-block: clamp(8px, 3vh, 28px);
+  }
+
+  .edition {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  /* On a phone the orbits are mostly off screen: the bodies become plain dots. */
+  .body__label {
+    display: none;
+  }
+
+  .body {
+    pointer-events: none;
+  }
+}
+
+/* ---------- The next arrow ----------
+   For anyone who would rather press than scroll: on to the next sheet. It is
+   made of the dock's frosted glass and sits on the page's centre line. Its rim
+   is the page as a ring, one arc for each sheet, inked as far as you have
+   read. js/sheets.js makes it. The drawing is one picture that fills the
+   button, with the arrow drawn about its middle (js/dial.js), so the arrow is
+   on the centre whatever else the button's box is doing. */
+
+.onward {
+  /* What it wears: its glass, its arrow and the ink of its ring. js/sheets.js
+     hands it those of whatever lies under it, a sheet or the desk at the foot
+     of the page (see ".sheet"). Until it has, the page's own. */
+  --dial-glass: var(--paper-raised);
+  --dial-ink: var(--ink);
+  --dial-accent: var(--accent);
+
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dial-glass) 80%, transparent);
+  box-shadow:
+    0 1px 1.5px rgb(0 0 0 / 0.1),
+    0 7px 16px -8px rgb(0 0 0 / 0.28),
+    0 20px 40px -20px rgb(0 0 0 / 0.5);
+  color: var(--dial-ink);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(20px) saturate(1.7);
+  backdrop-filter: blur(20px) saturate(1.7);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms var(--ease-out), background-color 320ms ease, color 320ms ease, box-shadow 240ms ease;
+}
+
+/* On a narrow screen the middle of the foot is where the page's own buttons sit. */
+@media (max-width: 699px) {
+  .onward {
+    inset-inline: auto 14px;
+    margin: 0;
+  }
+}
+
+.onward:active {
+  transform: scale(0.94);
+}
+
+.onward__dial {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  pointer-events: none;
+}
+
+.onward__arc {
+  stroke: color-mix(in srgb, var(--dial-ink) 30%, transparent);
+  stroke-width: 1;
+  transition: stroke 320ms ease;
+}
+
+.onward__ink {
+  stroke: var(--dial-accent);
+  stroke-width: 2;
+  transition: stroke 320ms ease;
+}
+
+/* The arrow turns about the middle of the drawing, which is the middle of the
+   button: a drawing's own turning point is its (0, 0). */
+.onward__turn {
+  transition: transform 560ms var(--ease-out);
+}
+
+.onward[data-back="true"] .onward__turn {
+  transform: rotate(180deg);
+}
+
+.onward__arrow {
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 220ms var(--ease-out);
+}
+
+@media (hover: hover) {
+  .onward:hover {
+    background: var(--dial-glass);
+    box-shadow:
+      0 1px 1.5px rgb(0 0 0 / 0.1),
+      0 9px 20px -8px rgb(0 0 0 / 0.32),
+      0 24px 44px -20px rgb(0 0 0 / 0.55);
+  }
+
+  .onward:hover .onward__arc {
+    stroke: color-mix(in srgb, var(--dial-ink) 50%, transparent);
+  }
+
+  /* A nudge the way it points. Turned round to point up, "down" in the arrow's own terms is up. */
+  .onward:hover .onward__arrow {
+    transform: translateY(2px);
+  }
+}
+
+/* ---------- Sheets ----------
+   Every section of the page is a sheet of paper. Without script they follow
+   one another down the page. With it (html.has-stack, set by js/sheets.js)
+   each one climbs into the window and holds there while the next slides over
+   it; the one underneath slips back and darkens. The holding is plain
+   position: sticky, so the scrolling itself is the browser's own. */
+
+.sheets {
+  background: var(--desk);
+}
+
+.sheet {
+  /* What this sheet is made of, and what the next arrow wears while it lies
+     over this sheet: its glass, its arrow and the ink of its ring. js/sheets.js
+     hands those three to the arrow. A sheet with colours of its own says so. */
+  --ground: var(--paper);
+  --dial-glass: var(--paper-raised);
+  --dial-ink: var(--ink);
+  --dial-accent: var(--accent);
+
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: clip;
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.has-stack .sheet {
+  position: sticky;
+  top: calc(-1 * var(--lip)); /* js/sheets.js sets the exact rest for each sheet */
+  min-height: calc(100vh + var(--lip));
+  min-height: calc(100lvh + var(--lip));
+  border-radius: var(--lip) var(--lip) 0 0;
+  box-shadow: 0 -22px 60px -22px rgb(0 0 0 / 0.45);
+}
+
+/* The first sheet is the page itself: square, and as tall as the hero needs. */
+.has-stack .hero {
+  top: 0;
+  min-height: max(100svh, 680px);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sheet__inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  width: 100%;
+  max-width: calc(var(--wide) + 2 * var(--gutter));
+  margin-inline: auto;
+  /* The foot stands clear of the next arrow: the arrow's 16px off the edge, its 52px, and 16px of air. */
+  padding: calc(var(--lip) + var(--head-room) + clamp(24px, 4.6vh, 52px)) var(--gutter) calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+/* The dark that falls on a sheet as the next one covers it. */
+.sheet__shade {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  background: var(--desk);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fibres {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  opacity: var(--fibre-opacity);
+  pointer-events: none;
+  transition: opacity 400ms ease;
+}
+
+.fibre {
+  stroke-width: 1.1;
+}
+
+.fibre--1 { stroke: #d9480f; }
+.fibre--2 { stroke: #1c7ed6; }
+.fibre--3 { stroke: #2b8a3e; }
+
+:root[data-theme="uv"] .fibre--1 { stroke: #ff8a4c; }
+:root[data-theme="uv"] .fibre--2 { stroke: #6fd8ff; }
+:root[data-theme="uv"] .fibre--3 { stroke: #c8ff5c; }
+
+/* The head of a sheet: its name, and the rule it sits on. The rule is a band
+   of five lines in the edition's inks, drawn as the sheet arrives. */
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 26px);
+  min-height: 44px;
+}
+
+.sheet__name {
+  flex: none;
+  color: var(--accent);
+  font-size: 1rem;
+  font-stretch: 110%;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.band {
+  flex: 1;
+  min-width: 0;
+  height: 1px;
+  background: var(--rule);
+}
+
+.band[data-drawn] {
+  height: 38px;
+  background: none;
+}
+
+.band__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The pen at the end of a line that is being drawn (js/tracer.js). */
+.trace__pen {
+  fill: var(--pen);
+  stroke: none;
+  filter: drop-shadow(0 0 3px var(--pen));
+}
+
+.band__line--1 { stroke: var(--ink-1); }
+.band__line--2 { stroke: var(--ink-2); }
+.band__line--3 { stroke: var(--ink-3); }
+.band__line--4 { stroke: var(--ink-4); }
+.band__line--5 { stroke: var(--ink-5); }
+
+/* What a sheet has to say, in the largest type on it. */
+.statement {
+  max-width: 17ch;
+  margin-top: clamp(18px, 4.2vh, 50px);
+  font-size: var(--step-1);
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.96;
+  text-wrap: balance;
+}
+
+/* A statement with a few lines beside it. */
+.sheet__lead {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  column-gap: clamp(24px, 4vw, 64px);
+  align-items: end;
+}
+
+.sheet__aside {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+  padding-bottom: 0.3em;
+}
+
+.sheet__aside .lede {
+  max-width: 34ch;
+  margin-top: 0;
+}
+
+@media (max-width: 899px) {
+  .sheet__lead {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 18px;
+  }
+}
+
+/* ---------- Product sheets ----------
+   Each product keeps its own colours on its own sheet. `--tone` is the
+   product's signal colour. */
+
+.sheet--mt :focus-visible,
+.sheet--dr :focus-visible,
+.sheet--hub :focus-visible,
+.sheet--bk :focus-visible {
+  outline-color: var(--tone);
+}
+
+.slab__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 15px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12), 0 16px 28px -16px #000;
+}
+
+.mt__head h2,
+.dr__head h2,
+.hub__head h2,
+.bk__head h2 {
+  margin-top: clamp(16px, 2.6vh, 26px);
+}
+
+.slab__tagline {
+  margin-top: 12px;
+  color: var(--tone);
+  font-size: var(--step-2);
+  font-stretch: 114%;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+/* A button that cannot be used just now (it stays focusable, so the keyboard does not lose its place). */
+.btn[aria-disabled="true"] {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.btn[aria-disabled="true"]:active {
+  transform: none;
+}
+
+/* ---------- Money Tycoon: its own dark and gold world ---------- */
+
+.sheet--mt {
+  --gold: #e9bd55;
+  --cream: #f6f1e4;
+  --tone: var(--gold);
+  --accent: var(--gold);
+  --ground: #08090a;
+  --dial-glass: color-mix(in oklab, var(--ground) 86%, #ffffff);
+  --dial-ink: var(--cream);
+  --rule: rgb(255 255 255 / 0.17);
+  --ink-1: #f6dc94;
+  --ink-2: #e9bd55;
+  --ink-3: #d3a548;
+  --ink-4: #b98c3a;
+  --ink-5: #97712f;
+
+  background:
+    radial-gradient(46% 44% at 72% 42%, rgb(233 189 85 / 0.17), transparent 72%),
+    radial-gradient(60% 50% at 0% 100%, rgb(47 208 138 / 0.09), transparent 64%),
+    var(--ground);
+  color: var(--cream);
+  color-scheme: dark;
+}
+
+.sheet--mt .sheet__inner,
+.sheet--dr .sheet__inner,
+.sheet--bk .sheet__inner {
+  grid-template-rows: auto 1fr;
+}
+
+.sheet--hub .sheet__inner {
+  grid-template-rows: auto 1fr auto;
+}
+
+.mt__slab {
+  /* The width of one phone. The stage is about two and a half of these tall,
+     so the height of the screen limits it as well as the width. */
+  --phone: clamp(170px, min(23vw, 28.5svh), 320px);
+
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "head stage"
+    "tabs stage"
+    "foot stage";
+  column-gap: clamp(24px, 4vw, 64px);
+  align-self: center;
+  margin-top: clamp(12px, 2.4vh, 30px);
+}
+
+.mt__head {
+  grid-area: head;
+}
+
+.mt__head h2 {
+  color: #fbf8f0;
+}
+
+/* The list of screens. It is also the timer: the gold line on the current
+   item runs its length, then the turntable steps on (js/turntable.js). */
+.mt__tabs {
+  grid-area: tabs;
+  align-self: center;
+  margin-block: clamp(16px, 3.4vh, 44px);
+}
+
+.mt__tab {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: clamp(11px, 1.9vh, 17px) 0 clamp(12px, 2vh, 18px);
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  opacity: 0.48;
+  transition: opacity 260ms ease;
+}
+
+.mt__tab::before,
+.mt__tab::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: rgb(255 255 255 / 0.17);
+}
+
+.mt__tab::after {
+  height: 2px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+.mt__tab[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.mt__tab[aria-pressed="true"]::after {
+  animation: mt-dwell 6.5s linear forwards;
+}
+
+.mt__tabs[data-paused="true"] .mt__tab::after {
+  animation-play-state: paused;
+}
+
+@keyframes mt-dwell {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.mt__tab strong {
+  font-size: var(--step-3);
+  font-stretch: 112%;
+  font-weight: 700;
+  letter-spacing: -0.016em;
+  line-height: 1.15;
+}
+
+.mt__tab span {
+  color: #bdb8ab;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mt__tab:hover {
+    opacity: 1;
+  }
+}
+
+.mt__foot {
+  grid-area: foot;
+}
+
+/* The stores' own badges, shown as supplied and at one height. Each store asks
+   for clear space of a quarter of the badge's height, which the gaps give.
+   Google's file carries its own margin (41 of every 250 px, around a badge
+   168 px tall), so it is drawn larger and pulled back in by exactly that. */
+.stores {
+  /* 40px is the smallest the stores allow; on a phone it keeps the two side by side. */
+  --badge: clamp(40px, 14px + 6.5vw, 48px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--badge) / 4) calc(var(--badge) / 3);
+}
+
+.stores a {
+  display: block;
+  border-radius: calc(var(--badge) * 0.16);
+  outline-offset: 4px;
+  transition: transform 160ms var(--ease-out);
+}
+
+.stores a:active {
+  transform: scale(0.97);
+}
+
+.stores img {
+  display: block;
+  width: auto;
+  height: var(--badge);
+}
+
+.stores__play img {
+  height: calc(var(--badge) * 250 / 168);
+  margin: calc(var(--badge) * -41 / 168);
+}
+
+.mt__small {
+  max-width: 30rem;
+  margin-top: 18px;
+  color: #a39f94;
+  font-size: var(--step-small);
+}
+
+/* The stage. Without script the three phones stand in a row; with it they
+   stand on the turntable, which sets their transforms every frame. */
+.mt__stage {
+  grid-area: stage;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3%;
+  min-height: calc(var(--phone) * 2.46);
+}
+
+.mt__phone {
+  position: relative;
+  flex: none;
+  width: 30%;
+  margin: 0;
+  aspect-ratio: 1095 / 2301;
+  overflow: hidden;
+  border-radius: 16.07% / 7.65%; /* the phone's own corner, so the shade and sheen stay inside it */
+}
+
+.mt__phone img {
+  width: 100%;
+  height: 100%;
+  -webkit-user-drag: none;
+}
+
+.mt__floor,
+.mt__shade,
+.mt__glare {
+  display: none;
+}
+
+.mt__stage.is-live {
+  display: block;
+  cursor: grab;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mt__stage.is-live[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+.mt__stage.is-live .mt__phone,
+.mt__stage.is-live .mt__floor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  will-change: transform;
+}
+
+.mt__stage.is-live .mt__phone {
+  width: var(--phone);
+}
+
+.mt__stage.is-live .mt__floor {
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+
+.mt__stage.is-live .mt__shade,
+.mt__stage.is-live .mt__glare {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.mt__shade {
+  background: #040405;
+  opacity: var(--shade, 0);
+}
+
+.mt__stage.is-live .mt__glare {
+  inset: 0 -80%;
+  background: linear-gradient(106deg, transparent 40%, rgb(255 255 255 / 0.12) 48%, rgb(255 255 255 / 0.03) 55%, transparent 62%);
+}
+
+.turntable {
+  width: 100%;
+  height: 100%;
+}
+
+.turntable .ink-a,
+.turntable .ink-b {
+  stroke: var(--gold);
+  opacity: 0.55;
+}
+
+@media (max-width: 899px) {
+  .mt__slab {
+    --phone: clamp(170px, min(48vw, 33svh), 290px);
+
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+      "head"
+      "stage"
+      "tabs"
+      "foot";
+  }
+
+  .mt__stage {
+    /* The phones at the back run to the slab's edges. */
+    margin: clamp(18px, 4vw, 30px) calc(-1 * var(--gutter)) 0;
+  }
+
+  .mt__tabs {
+    margin-block: 8px clamp(22px, 5vw, 34px);
+  }
+}
+
+/* ---------- Domino Reactor: violet dark, ivory dominoes, one pink spark ---------- */
+
+.sheet--dr {
+  --pink: #ff4d9a;
+  --ivory: #f0ece6;
+  --tone: var(--pink);
+  --accent: var(--pink);
+  --ground: #0b0a14;
+  --dial-glass: color-mix(in oklab, var(--ground) 86%, #ffffff);
+  --dial-ink: var(--ivory);
+  --rule: rgb(255 255 255 / 0.16);
+  --ink-1: #ff9cc7;
+  --ink-2: #ff4d9a;
+  --ink-3: #c76bff;
+  --ink-4: #8d7bff;
+  --ink-5: #5f6dff;
+
+  background:
+    radial-gradient(52% 64% at 30% 56%, rgb(104 78 255 / 0.15), transparent 72%),
+    var(--ground);
+  color: var(--ivory);
+  color-scheme: dark;
+}
+
+.dr__slab {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  grid-template-rows: 1fr auto auto 1fr;
+  grid-template-areas:
+    "stage ."
+    "stage head"
+    "stage body"
+    "stage .";
+  column-gap: clamp(24px, 4vw, 64px);
+  align-self: center;
+}
+
+.dr__head {
+  grid-area: head;
+}
+
+.dr__head h2 {
+  color: #fbf9f5;
+}
+
+.dr__body {
+  grid-area: body;
+  margin-top: clamp(18px, 2.4vw, 30px);
+}
+
+.dr__text {
+  max-width: 27rem;
+  color: #b4aecb;
+  text-wrap: pretty;
+}
+
+.dr__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  margin-top: clamp(20px, 2.6vw, 32px);
+}
+
+.dr__tally {
+  color: #8983a6;
+  font-size: clamp(1.35rem, 1rem + 1.2vw, 1.9rem);
+  font-stretch: 112%;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* The count sits in a box as wide as its largest value, set to the right, so
+   the total beside it holds still while the count races. */
+.dr__tally b {
+  display: inline-block;
+  min-width: 3.55em;
+  color: var(--ivory);
+  font-weight: 750;
+  text-align: right;
+}
+
+.btn--pink {
+  background: var(--pink);
+  color: #27030f;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--pink:not([aria-disabled="true"]):hover {
+    background: #ff7db5;
+  }
+}
+
+/* The run. Without script, or without WebGL, a still drawing stands in. */
+.dr__stage {
+  grid-area: stage;
+  position: relative;
+  /* As wide as its column, but never so tall that the sheet outgrows the window. */
+  width: min(100%, calc((100svh - 232px) / 0.74));
+  aspect-ratio: 1 / 0.74;
+  justify-self: center;
+}
+
+.dr__canvas {
+  position: absolute;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+.dr__still {
+  width: min(100%, 420px);
+  height: 100%;
+  margin-inline: auto;
+}
+
+.js .dr__stage:not(.is-still) .dr__still {
+  display: none;
+}
+
+.dr__stage.is-live {
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dr__stage.is-live .dr__canvas {
+  display: block;
+  /* A film frame: where the picture is empty the sheet shows through it. */
+  border-radius: 22px;
+}
+
+.dr__stage.is-turning {
+  cursor: grabbing;
+}
+
+.dr__designs[hidden] {
+  display: none;
+}
+
+/* What the dominoes are made of: one round sample of each. */
+.dr__designs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: clamp(18px, 2.2vw, 26px);
+}
+
+.dr__chip {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.2), inset 0 -6px 10px -6px rgb(0 0 0 / 0.5), 0 8px 16px -10px #000;
+  transition: transform 160ms var(--ease-out);
+}
+
+.dr__chip::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--pink);
+  opacity: 0;
+  transform: scale(0.88);
+  transition: opacity 160ms ease, transform 220ms var(--ease-out);
+}
+
+.dr__chip[aria-pressed="true"]::after {
+  opacity: 1;
+  transform: none;
+}
+
+.dr__chip:active {
+  transform: scale(0.94);
+}
+
+.dr__chip--ivory {
+  background: radial-gradient(circle at 34% 28%, #fffdf6, #e9e1cf 46%, #b9ad94);
+}
+
+.dr__chip--obsidian {
+  background: radial-gradient(circle at 34% 28%, #77758a, #17161d 36%, #050506);
+}
+
+.dr__chip--marble {
+  background:
+    linear-gradient(118deg, transparent 37%, rgb(98 100 116 / 0.6) 41%, transparent 46%, transparent 60%, rgb(98 100 116 / 0.42) 63%, transparent 67%),
+    radial-gradient(circle at 34% 28%, #fff, #e6e4e0 50%, #b5b3b0);
+}
+
+.dr__chip--walnut {
+  background:
+    repeating-linear-gradient(98deg, rgb(36 16 5 / 0.55) 0 2px, transparent 2px 6px),
+    radial-gradient(circle at 34% 28%, #b06f3f, #6d3a1a 50%, #3a1c0b);
+}
+
+.dr__chip--gold {
+  background: conic-gradient(from 210deg, #8a6417, #ffe9a6, #c99a32, #fff3c4, #9a7220, #f5d784, #8a6417);
+}
+
+.dr__chip--reactor {
+  background:
+    radial-gradient(circle, #ff4d9a 0 17%, transparent 20%),
+    radial-gradient(circle at 34% 28%, #45405e, #14121f 46%, #07060c);
+}
+
+@media (pointer: coarse) {
+  .dr__chip {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 899px) {
+  .dr__slab {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+      "head"
+      "stage"
+      "body";
+  }
+
+  .dr__stage {
+    aspect-ratio: 1 / 0.8;
+    width: auto;
+    justify-self: stretch;
+    margin: clamp(10px, 3vw, 22px) calc(-1 * var(--gutter)) 0;
+  }
+
+  .dr__body {
+    margin-top: 6px;
+  }
+}
+
+/* ---------- Orchestration Hub: a signal box at night. Colour says what a job needs:
+   amber is held for a person, green is cleared, pale blue is everything running as it should. ---------- */
+
+.sheet--hub {
+  --calm: #8fd3e8;
+  --held: #ffb547;
+  --clear: #62dba0;
+  --mist: #eaf2f5;
+  --tone: var(--calm);
+  --accent: var(--calm);
+  --ground: #0b1f2a;
+  --dial-glass: color-mix(in oklab, var(--ground) 86%, #ffffff);
+  --dial-ink: var(--mist);
+  --rule: rgb(255 255 255 / 0.14);
+  --ink-1: #e6f4fa;
+  --ink-2: #8fd3e8;
+  --ink-3: #5bb0d6;
+  --ink-4: #3f8fc4;
+  --ink-5: #3a72b4;
+
+  background:
+    radial-gradient(56% 68% at 70% 50%, rgb(110 190 230 / 0.12), transparent 72%),
+    var(--ground);
+  color: var(--mist);
+  color-scheme: dark;
+}
+
+.hub__slab {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-rows: 1fr auto auto 1fr;
+  grid-template-areas:
+    ". stage"
+    "head stage"
+    "body stage"
+    ". stage";
+  column-gap: clamp(24px, 4vw, 64px);
+  align-self: center;
+}
+
+.hub__head {
+  grid-area: head;
+}
+
+.hub__head h2 {
+  color: #f6fbfd;
+}
+
+.hub__body {
+  grid-area: body;
+  margin-top: clamp(18px, 2.4vw, 30px);
+}
+
+.hub__text {
+  max-width: 28rem;
+  color: #a3bcc7;
+  text-wrap: pretty;
+}
+
+.hub__controls {
+  margin-top: clamp(20px, 2.6vw, 32px);
+}
+
+.btn--signal {
+  background: var(--held);
+  color: #2b1700;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--signal:not([aria-disabled="true"]):hover {
+    background: #ffc978;
+  }
+}
+
+/* The floor: the stages across the top, a lane to each job, and the gate before the merge. */
+.hub__stage {
+  --inset: 58px; /* room at each end of a lane for half a job */
+
+  grid-area: stage;
+  align-self: center;
+  padding: 20px 0 14px;
+  border-radius: 22px;
+  background: rgb(255 255 255 / 0.035);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+.hub__stages {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 var(--inset);
+  padding: 0;
+  list-style: none;
+  color: #8aa6b3;
+  font-size: var(--step-small);
+  font-weight: 600;
+}
+
+.hub__stages > li {
+  padding: 0 0 12px 10px;
+  border-left: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.hub__lanes {
+  position: relative;
+  padding: 0 var(--inset);
+}
+
+.hub__lane {
+  position: relative;
+  height: clamp(46px, 7.2svh, 62px);
+}
+
+.hub__lane::before {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
+  height: 1px;
+  background: rgb(255 255 255 / 0.1);
+}
+
+.hub__gate {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--inset) + (100% - 2 * var(--inset)) * 0.75);
+  border-left: 1px dashed rgb(143 211 232 / 0.45);
+  transition: border-color 200ms ease;
+}
+
+.hub__stage.is-held .hub__gate {
+  border-left-color: var(--held);
+}
+
+/* A job: what it is, and (in pips) how large a model it was given. */
+.hub__job {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  translate: -50% -50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px 0 12px;
+  border-radius: 999px;
+  background: #143140;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+  color: #e3eef3;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.hub__job[hidden] {
+  display: none;
+}
+
+.hub__model {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.hub__model > i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.2);
+}
+
+.hub__model[data-tier="1"] > i:first-child,
+.hub__model[data-tier="2"] > i:nth-child(-n + 2),
+.hub__model[data-tier="3"] > i {
+  background: var(--calm);
+}
+
+/* In the audit a second model looks the work over: a second ring round the job. */
+.hub__job.is-audited {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16), 0 0 0 3px var(--ground), 0 0 0 4.5px var(--calm);
+}
+
+/* A release is amber from the start: it is the one job that will need a person. */
+.hub__job--release {
+  background: var(--held);
+  color: #2b1700;
+  transition: background-color 240ms ease, color 240ms ease;
+}
+
+.hub__job--release .hub__model > i {
+  background: #2b1700;
+}
+
+/* Approved, it goes green and through the gate. */
+.hub__job--release.is-cleared {
+  background: var(--clear);
+  color: #052416;
+}
+
+.hub__job--release.is-cleared .hub__model > i {
+  background: #052416;
+}
+
+.hub__job--release.is-audited {
+  box-shadow: 0 0 0 3px var(--ground), 0 0 0 4.5px var(--calm);
+}
+
+.hub__job.is-waiting {
+  cursor: pointer;
+  box-shadow: 0 0 0 3px var(--ground), 0 0 0 4.5px var(--held);
+}
+
+.hub__job.is-waiting::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 1.5px solid var(--held);
+  border-radius: 999px;
+  animation: hub-wait 1500ms var(--ease-out) infinite;
+}
+
+@keyframes hub-wait {
+  from {
+    opacity: 0.9;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.32, 1.7);
+  }
+}
+
+/* Other things on the bench. */
+.bench {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px clamp(20px, 3vw, 44px);
+  margin: clamp(26px, 4.6vh, 52px) 0 0;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--rule);
+  list-style: none;
+  color: #8aa6b3;
+  font-size: var(--step-small);
+  text-wrap: pretty;
+}
+
+.bench strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--mist);
+  font-size: var(--step-body);
+  font-stretch: 108%;
+  font-weight: 650;
+}
+
+@media (max-width: 899px) {
+  .hub__slab {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+      "head"
+      "stage"
+      "body";
+  }
+
+  .hub__stage {
+    --inset: 46px;
+
+    margin-top: clamp(16px, 4vw, 26px);
+  }
+
+  .hub__job {
+    height: 28px;
+    padding: 0 8px 0 10px;
+    font-size: 0.75rem;
+  }
+
+  /* The button comes straight after the floor it works, ahead of the words. */
+  .hub__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 18px;
+  }
+
+  .hub__controls {
+    order: -1;
+    margin: 0 0 18px;
+  }
+
+  .bench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- CapitalCraft Books: daylight, paper, one ink blue ---------- */
+
+.sheet--bk {
+  --blue: #2747d8;
+  --night: #14182b;
+  --tone: var(--blue);
+  --accent: var(--blue);
+  --focus: var(--blue);
+  --ground: #f7f4ec;
+  --dial-glass: #ffffff;
+  --dial-ink: var(--night);
+  --dial-accent: var(--blue);
+  --rule: rgb(20 24 43 / 0.13);
+  --ink-1: #14182b;
+  --ink-2: #1d2f8f;
+  --ink-3: #2747d8;
+  --ink-4: #4f78ff;
+  --ink-5: #7fa4ff;
+
+  background:
+    radial-gradient(54% 66% at 28% 54%, rgb(39 71 216 / 0.07), transparent 72%),
+    var(--ground);
+  color: var(--night);
+  color-scheme: light;
+}
+
+.bk__slab {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  grid-template-rows: 1fr auto auto 1fr;
+  grid-template-areas:
+    "stage ."
+    "stage head"
+    "stage body"
+    "stage .";
+  column-gap: clamp(24px, 4vw, 64px);
+  align-self: center;
+}
+
+.bk__head {
+  grid-area: head;
+}
+
+.bk__body {
+  grid-area: body;
+  margin-top: clamp(18px, 2.4vw, 30px);
+}
+
+.bk__text {
+  max-width: 28rem;
+  color: #4b5069;
+  text-wrap: pretty;
+}
+
+.bk__stage {
+  grid-area: stage;
+  align-self: center;
+  width: min(100%, 640px);
+  justify-self: center;
+}
+
+/* The card: where you are along the top, and one level of the books below it. */
+.bk__card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 388px;
+  overflow: clip;
+  border-radius: 20px;
+  background: #fffefb;
+  box-shadow:
+    0 0 0 1px rgb(20 24 43 / 0.08),
+    0 8px 18px -12px rgb(20 24 43 / 0.2),
+    0 34px 64px -36px rgb(20 24 43 / 0.4);
+}
+
+.bk__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 4px 18px 4px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.bk__crumbs {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-size: var(--step-small);
+  font-weight: 650;
+}
+
+.bk__crumb {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+}
+
+button.bk__crumb {
+  flex: none;
+  color: var(--blue);
+}
+
+/* Where you are now: it gives way, and is cut short, when the card is narrow. */
+span.bk__crumb {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 44px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bk__crumb + .bk__crumb {
+  position: relative;
+  margin-left: 12px;
+}
+
+.bk__crumb + .bk__crumb::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 1px;
+  height: 14px;
+  background: rgb(20 24 43 / 0.28);
+  rotate: 18deg;
+  translate: 0 -50%;
+}
+
+.bk__sample {
+  flex: none;
+  color: #6b7088;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bk__level {
+  display: grid;
+  align-content: start;
+  padding: 8px;
+}
+
+.bk__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 34px 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  text-align: left;
+}
+
+button.bk__row {
+  position: relative;
+  transition: background-color 160ms ease, transform 160ms var(--ease-out);
+}
+
+/* A row that opens says so with a small chevron. */
+button.bk__row::after {
+  content: "";
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-top: 1.75px solid rgb(20 24 43 / 0.4);
+  border-right: 1.75px solid rgb(20 24 43 / 0.4);
+  rotate: 45deg;
+  translate: 0 -50%;
+  transition: translate 160ms var(--ease-out), border-color 160ms ease;
+}
+
+button.bk__row:active {
+  transform: scale(0.99);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.bk__row:hover {
+    background: rgb(39 71 216 / 0.07);
+  }
+
+  button.bk__row:hover::after {
+    border-color: var(--blue);
+    translate: 3px -50%;
+  }
+
+  button.bk__crumb:hover {
+    background: rgb(39 71 216 / 0.08);
+  }
+}
+
+/* The row that totals the ones above it. */
+div.bk__row {
+  margin-top: 4px;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+}
+
+.bk__level[data-depth="0"] .bk__row {
+  min-height: 72px;
+  font-size: var(--step-3);
+}
+
+.bk__what {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bk__what--total {
+  font-weight: 750;
+}
+
+.bk__day {
+  flex: none;
+  width: 3.7em;
+  color: #6b7088;
+  font-size: var(--step-small);
+}
+
+.bk__tag {
+  flex: none;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgb(20 24 43 / 0.06);
+  color: #454a63;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.bk__figure {
+  flex: none;
+  min-width: 5.6em;
+  font-weight: 650;
+  text-align: right;
+}
+
+.bk__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 6px;
+  color: #6b7088;
+  font-size: var(--step-small);
+}
+
+.bk__entry {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bk__entry th {
+  padding: 10px 12px;
+  color: #6b7088;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.bk__entry td {
+  padding: 13px 12px;
+  border-top: 1px solid var(--rule);
+  font-weight: 550;
+  text-align: right;
+}
+
+.bk__entry th:first-child,
+.bk__entry td:first-child {
+  text-align: left;
+}
+
+.bk__entry tfoot td {
+  border-top: 1.5px solid var(--night);
+  font-weight: 750;
+}
+
+.bk__entry tfoot td:first-child {
+  color: var(--blue);
+}
+
+@media (max-width: 899px) {
+  .bk__slab {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+      "head"
+      "stage"
+      "body";
+  }
+
+  .bk__stage {
+    margin-top: clamp(16px, 4vw, 26px);
+  }
+
+  .bk__body {
+    margin-top: 18px;
+  }
+}
+
+@media (max-width: 560px) {
+  /* The project is on the entry itself; the list keeps to the date, the name and the figure. */
+  .bk__row .bk__tag,
+  .bk__sample {
+    display: none;
+  }
+
+  .bk__row {
+    gap: 8px;
+    padding-left: 8px;
+  }
+
+  .bk__figure {
+    min-width: 0;
+  }
+}
+
+/* ---------- Studio ---------- */
+
+.services {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: clamp(26px, 4.6vh, 60px);
+  border-top: 1px solid var(--rule);
+}
+
+.services > li {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: clamp(20px, 2.6vw, 34px) clamp(16px, 2.2vw, 32px) 0 0;
+}
+
+.services > li + li {
+  padding-left: clamp(16px, 2.2vw, 32px);
+  border-left: 1px solid var(--rule);
+}
+
+.services p {
+  max-width: 24rem;
+  color: var(--ink-soft);
+}
+
+.stamp {
+  display: block;
+  width: clamp(84px, 9vw, 128px);
+  aspect-ratio: 1;
+  margin-bottom: 8px;
+}
+
+.rosette {
+  width: 100%;
+  height: 100%;
+}
+
+/* A rosette turns under the hand (js/rosettes.js sets --turn): its two inks
+   go opposite ways about its middle, so the weave re-forms as it goes. */
+.rosette .ink-a {
+  transform: rotate(var(--turn, 0deg));
+}
+
+.rosette .ink-b {
+  transform: rotate(calc(-1 * var(--turn, 0deg)));
+}
+
+.stamp.is-live {
+  /* Up and down still scrolls the page under a finger; across turns the rosette. */
+  touch-action: pan-y;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stamp.is-held {
+  cursor: grabbing;
+}
+
+.ink-a { stroke: var(--ink-a); }
+.ink-b { stroke: var(--ink-b); }
+
+:root[data-theme="uv"] .ink-a { stroke: #9fb0ff; }
+:root[data-theme="uv"] .ink-b { stroke: #d9a9ff; }
+
+/* The still plate's seal: the same black stone the live plate draws, and under UV the mark glows. */
+:root[data-theme="uv"] .still__seal {
+  fill: #0b0719;
+  stroke: #3a2f73;
+}
+
+:root[data-theme="uv"] .still__sheen {
+  fill: #8f7dff;
+  fill-opacity: 0.12;
+}
+
+:root[data-theme="uv"] .still__mark {
+  fill: var(--hidden);
+}
+
+/* What comes after the four: not on offer yet, so it stands apart from them. */
+.next {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 22px);
+  margin-top: clamp(22px, 4vh, 48px);
+  padding-top: clamp(16px, 2.4vh, 24px);
+  border-top: 1px dashed var(--rule-strong);
+  color: var(--ink-soft);
+}
+
+.next strong {
+  color: var(--ink);
+  font-stretch: 108%;
+  font-weight: 700;
+}
+
+.next .stamp {
+  flex: none;
+  width: 52px;
+  margin: 0;
+  opacity: 0.55;
+}
+
+@media (max-width: 1099px) {
+  .services {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .services > li:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .services > li:nth-child(n + 3) {
+    margin-top: clamp(20px, 2.6vw, 34px);
+    border-top: 1px solid var(--rule);
+  }
+}
+
+@media (max-width: 699px) {
+  .services {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .services > li,
+  .services > li + li {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 18px;
+    margin-top: 0;
+    padding: 20px 0;
+    border-left: 0;
+  }
+
+  .services > li + li {
+    border-top: 1px solid var(--rule);
+  }
+
+  .services .stamp {
+    grid-row: span 2;
+    width: 68px;
+    margin: 0;
+  }
+}
+
+/* ---------- About us: printed in the edition's own ink ---------- */
+
+.sheet--about {
+  --ink: #f2f5f1;
+  --ink-soft: rgb(242 245 241 / 0.76);
+  --rule: rgb(242 245 241 / 0.2);
+  --rule-strong: rgb(242 245 241 / 0.42);
+  --accent: color-mix(in oklab, var(--ink-b) 34%, #ffffff);
+  --focus: #ffffff;
+  --ink-1: color-mix(in oklab, var(--edition-1, #12355b) 42%, #ffffff);
+  --ink-2: color-mix(in oklab, var(--edition-2, #10506d) 42%, #ffffff);
+  --ink-3: color-mix(in oklab, var(--edition-3, #0e6b66) 42%, #ffffff);
+  --ink-4: color-mix(in oklab, var(--edition-4, #256a45) 42%, #ffffff);
+  --ink-5: color-mix(in oklab, var(--edition-5, #55641f) 42%, #ffffff);
+
+  --ground: color-mix(in oklab, var(--ink-a) 58%, #050807);
+  --dial-glass: color-mix(in oklab, var(--ground) 86%, #ffffff);
+
+  color: var(--ink);
+  color-scheme: dark;
+}
+
+:root[data-theme="uv"] .sheet--about {
+  --ink: #ece9ff;
+  --ink-soft: #b7b1e2;
+  --ground: color-mix(in oklab, var(--ink-a) 30%, #07041c);
+}
+
+.about {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: clamp(28px, 4vh, 44px) clamp(24px, 4vw, 64px);
+  align-items: start;
+  margin-top: clamp(26px, 4.8vh, 60px);
+}
+
+.about__text {
+  display: grid;
+  gap: 0.9em;
+  max-width: 38rem;
+  color: var(--ink-soft);
+  font-size: var(--step-lede);
+  line-height: 1.42;
+  text-wrap: pretty;
+}
+
+.about__text p:first-child {
+  color: var(--ink);
+}
+
+/* Plain facts, set out like the lines of a ledger. */
+.ledger {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.ledger > div {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 3fr) minmax(0, 8fr);
+  gap: 16px;
+  align-items: baseline;
+  padding: clamp(9px, 1.5vh, 13px) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ledger dt {
+  color: var(--ink-soft);
+  font-size: var(--step-small);
+  font-weight: 600;
+}
+
+.ledger dd {
+  margin: 0;
+  font-stretch: 106%;
+  font-weight: 600;
+}
+
+@media (max-width: 899px) {
+  .about {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Principles: claims in daylight, proof under UV ---------- */
+
+.rules {
+  margin-top: clamp(22px, 4vh, 52px);
+}
+
+.rules > li {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 6px clamp(20px, 4vw, 64px);
+  align-items: baseline;
+  padding: clamp(12px, 2vh, 24px) 0;
+  border-top: 1px solid var(--rule);
+}
+
+.rules > li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.rule__claim {
+  font-size: var(--step-2);
+  font-stretch: 116%;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+}
+
+.rule__proof {
+  color: var(--hidden);
+  font-weight: 600;
+  text-shadow: var(--hidden-glow);
+  transition: color 500ms ease, text-shadow 500ms ease;
+}
+
+@media (max-width: 760px) {
+  .rules > li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Contact ---------- */
+
+.sheet--contact {
+  --ground: var(--paper-raised);
+}
+
+.sheet--contact .sheet__inner {
+  grid-template-rows: auto 1fr auto;
+  min-height: 100%;
+}
+
+.sheet--contact .statement {
+  align-self: center;
+  max-width: 11ch;
+  font-size: var(--step-0);
+  line-height: 0.9;
+}
+
+/* Two addresses: one for new work, one for the game's players. */
+.contact__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  gap: clamp(18px, 2.4vw, 30px) clamp(32px, 7vw, 112px);
+  margin-top: clamp(26px, 5vh, 64px);
+  padding-top: clamp(18px, 2.6vh, 28px);
+  border-top: 1px solid var(--rule);
+}
+
+.contact__list > li {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+
+.contact__for {
+  color: var(--ink-soft);
+  font-size: var(--step-small);
+  font-weight: 600;
+}
+
+.contact__mail {
+  max-width: 100%;
+  /* Sized so the longer address still fits on one line on a phone. */
+  font-size: clamp(1rem, 0.42rem + 2.5vw, 1.75rem);
+  font-stretch: 112%;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 0.09em;
+}
+
+@media (max-width: 899px) {
+  .contact__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Footer: the desk under the sheets ---------- */
+
+.foot {
+  --light: #f2f5f1;
+  /* What the next arrow wears over the desk (see ".sheet"). */
+  --ground: var(--desk);
+  --dial-glass: color-mix(in oklab, var(--ground) 86%, #ffffff);
+  --dial-ink: var(--light);
+  --dial-accent: color-mix(in oklab, var(--ink-b) 38%, #ffffff);
+
+  background: var(--ground);
+  color: rgb(242 245 241 / 0.68);
+  color-scheme: dark;
+  font-size: var(--step-small);
+  line-height: 1.55;
+}
+
+.foot :focus-visible {
+  outline-color: var(--light);
+}
+
+.foot__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(28px, 5vw, 72px) clamp(20px, 4vw, 64px);
+  max-width: calc(var(--wide) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding: clamp(56px, 9vw, 128px) var(--gutter) max(36px, env(safe-area-inset-bottom));
+}
+
+/* The logo file, used as a stencil, so it can be printed light on the dark desk. */
+.foot__logo {
+  width: min(100%, 25rem);
+  aspect-ratio: 4870 / 1920;
+  background: var(--light);
+  -webkit-mask: url("../img/logo.svg") left center / contain no-repeat;
+  mask: url("../img/logo.svg") left center / contain no-repeat;
+}
+
+.foot__side {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.foot__legal {
+  max-width: 44rem;
+  color: var(--light);
+}
+
+.foot__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 26px;
+}
+
+.foot__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--light);
+}
+
+.foot__marks {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  max-width: 62rem;
+  padding-top: 22px;
+  border-top: 1px solid rgb(242 245 241 / 0.16);
+}
+
+@media (max-width: 760px) {
+  .foot__inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* At the end of the page the next arrow rests on the desk: keep the last lines clear of it. */
+.has-stack .foot__inner {
+  padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---------- The lamp's spreading light (View Transitions) ---------- */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 0;
+}
+
+::view-transition-new(root) {
+  z-index: 1;
+}
+
+/* ---------- The page for an address with nothing at it (404.html) ---------- */
+
+.lost {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: clamp(22px, 4vh, 40px);
+  min-height: 100svh;
+  max-width: calc(var(--wide) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding: var(--gutter);
+}
+
+.lost .statement {
+  max-width: 13ch;
+  margin-top: 0;
+}
+
+/* ---------- Arrival ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .js h1 .line,
+  .js .lede,
+  .js .hero__actions,
+  .js .edition {
+    animation: arrive 900ms var(--ease-out) both;
+  }
+
+  .js h1 .line:nth-child(2) { animation-delay: 70ms; }
+  .js h1 .line:nth-child(3) { animation-delay: 140ms; }
+  .js .lede { animation-delay: 240ms; }
+  .js .hero__actions { animation-delay: 320ms; }
+  .js .edition { animation-delay: 520ms; }
+
+  @keyframes arrive {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  /* Nothing moves, so there is no speed to set. */
+  .speed {
+    display: none;
+  }
+
+  /* No transitions at all (not merely very short ones): a script that measures
+     the page straight after a change must read the final sizes. Animations
+     keep a token length so that code waiting for one to end still hears it. */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Print: the sheets one after another, as plain pages ---------- */
+
+@media print {
+  .top,
+  .onward,
+  .sheet__shade,
+  .hero__plate,
+  .hero__bodies,
+  .edition {
+    display: none !important;
+  }
+
+  .has-stack .sheet {
+    position: relative;
+    top: auto !important;
+    min-height: 0;
+    border-radius: 0;
+    box-shadow: none;
+    transform: none !important;
+  }
+}

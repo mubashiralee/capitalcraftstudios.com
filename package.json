@@ -1,0 +1,11 @@
+{
+  "name": "capitalcraftstudios.com",
+  "private": true,
+  "type": "module",
+  "description": "Static site for CapitalCraft Studios Ltd. No build step, no dependencies.",
+  "scripts": {
+    "test": "node --test tests/",
+    "check:plate": "node tools/check-plate.mjs",
+    "legal": "node tools/make-legal.mjs"
+  }
+}
