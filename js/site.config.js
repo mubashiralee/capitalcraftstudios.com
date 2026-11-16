@@ -16,14 +16,20 @@ export const SITE = Object.freeze({
   // bodies that share an orbit are spaced evenly round it (js/bodies.js).
   // `gem` names the jewel a product is marked with (.body--gem-<name> in
   // css/site.css); a body without one is a plain ring.
+  //
+  // The products ride the innermost orbit, a quarter turn apart, because that
+  // is the one orbit a laptop and a phone both show most of: on the second
+  // orbit a product was out of sight half the time on a 1440 px window, and
+  // nearly all the time on a phone. The outer two orbits are mostly off the
+  // screen, so nothing that has to be seen rides them.
   bodies: Object.freeze([
     Object.freeze({ label: 'Money Tycoon', target: '#money-tycoon', orbit: 0, gem: 'mt' }),
     Object.freeze({ label: 'Domino Reactor', target: '#domino-reactor', orbit: 0, gem: 'dr' }),
-    Object.freeze({ label: 'Orchestration Hub', target: '#orchestration-hub', orbit: 1, gem: 'hub' }),
-    Object.freeze({ label: 'CapitalCraft Books', target: '#capitalcraft-books', orbit: 1, gem: 'bk' }),
-    Object.freeze({ label: 'Apps', target: '#apps', orbit: 2 }),
-    Object.freeze({ label: 'Games', target: '#games', orbit: 3 }),
-    Object.freeze({ label: 'Websites', target: '#websites', orbit: 3 }),
-    Object.freeze({ label: 'Start a project', target: '#contact', orbit: 4 }),
+    Object.freeze({ label: 'Orchestration Hub', target: '#orchestration-hub', orbit: 0, gem: 'hub' }),
+    Object.freeze({ label: 'CapitalCraft Books', target: '#capitalcraft-books', orbit: 0, gem: 'bk' }),
+    Object.freeze({ label: 'Apps', target: '#apps', orbit: 1 }),
+    Object.freeze({ label: 'Games', target: '#games', orbit: 1 }),
+    Object.freeze({ label: 'Websites', target: '#websites', orbit: 1 }),
+    Object.freeze({ label: 'Start a project', target: '#contact', orbit: 2 }),
   ]),
 });

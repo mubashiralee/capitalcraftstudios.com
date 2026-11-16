@@ -14,7 +14,7 @@ import {
   serialParts,
   stampFrom,
 } from './edition.js';
-import { seatBodies } from './bodies.js';
+import { ROOM, glintToward, seatBodies, showBodies } from './bodies.js';
 import { startBooks } from './books-view.js';
 import { startDominoes } from './dominoes.js';
 import { castDrop, lifted, silhouette } from './drop.js';
@@ -125,9 +125,14 @@ let stack = null;
 let tracer = null;
 let bodyEls = [];
 const seats = seatBodies(SITE.bodies, PLATE.orbits.length); // which orbit each body rides, and how far round
+let bodyNames = []; // how wide each body's name is at full size, in pixels (0 where this layout shows no names)
+let bodiesShown = []; // what js/bodies.js said of each body at the last frame: whether it shows, and the side its name is on
+let glints = []; // where each jewel's glint was last put, so that it is only moved when it has moved
 let keepClear = [];
-let wordBoxes = []; // the hero's words and controls, line by line: the bodies pass round these, not through them
-let bodyReach = []; // how far each body (its dot and label) reaches to the right of where it rides, in pixels
+let wordBoxes = []; // the hero's words and controls, line by line
+let inTheWay = []; // those, and the next arrow: the bodies pass round these, not through them
+let wordsChanged = false; // the words have changed since they were measured
+let arrowMoved = false; // the page has moved under the next arrow since it was measured
 let running = false;
 let loop = 0; // each start of the frame loop gets a number; a frame from an older start stops itself
 let lastFrame = 0;
@@ -369,15 +374,14 @@ function layout() {
   if (!running) drawOnce();
 }
 
-/** Room left between a body and the words it passes, in pixels: across, and up and down. */
-const WORD_ROOM = { across: 18, down: 10 };
-
 /**
  * Where the hero's words and controls actually are: each line of text, and each
  * button, link and slider, not the columns they stand in (a column runs well
  * out past its words, and a body kept out of all of it is hidden half its time).
+ * The boxes are as measured: js/bodies.js adds the room a body keeps from them.
  */
 function measureWords(heroBox = hero.getBoundingClientRect()) {
+  wordsChanged = false;
   const boxes = [];
   const range = document.createRange();
   for (const block of copyBlocks) {
@@ -391,13 +395,39 @@ function measureWords(heroBox = hero.getBoundingClientRect()) {
   }
   wordBoxes = boxes
     .filter((box) => box.width > 1 && box.height > 1) // nothing hidden, nothing clipped away for screen readers
-    .map((box) => ({
-      left: box.left - heroBox.left - WORD_ROOM.across,
-      right: box.right - heroBox.left + WORD_ROOM.across,
-      top: box.top - heroBox.top - WORD_ROOM.down,
-      bottom: box.bottom - heroBox.top + WORD_ROOM.down,
-    }));
-  bodyReach = bodyEls.map((el) => el.offsetWidth);
+    .map((box) => onHero(box, heroBox));
+  // A body's name is there twice, once for each side it can go; both are the same width.
+  bodyNames = bodyEls.map((el) => el.lastElementChild.offsetWidth);
+  measureArrow(heroBox);
+}
+
+/** A box the browser measured against the window, as a box on the hero. */
+const onHero = (box, heroBox) => ({
+  left: box.left - heroBox.left,
+  right: box.right - heroBox.left,
+  top: box.top - heroBox.top,
+  bottom: box.bottom - heroBox.top,
+});
+
+/**
+ * The next arrow (js/sheets.js) floats over the foot of the hero, so it is in the bodies' way
+ * too. It keeps its place in the window: where the hero is taller than the window, as on a
+ * phone, the hero moves under it as the page is scrolled.
+ */
+function measureArrow(heroBox = hero.getBoundingClientRect()) {
+  arrowMoved = false;
+  const box = one('.onward')?.getBoundingClientRect();
+  inTheWay = box && box.width > 1 ? [...wordBoxes, onHero(box, heroBox)] : wordBoxes;
+}
+
+/**
+ * The words are not where they were measured: the serial has been redrawn, a button has changed
+ * what it says, or the words have finished arriving. They are measured again at the next frame,
+ * once for however many changes there were.
+ */
+function wordsMoved() {
+  wordsChanged = true;
+  if (!running) requestAnimationFrame(drawOnce); // nothing is drawing: draw one frame, which measures
 }
 
 // ---------------------------------------------------------------------------
@@ -629,6 +659,19 @@ function revealTo(value, duration, { ease = steady, paced = true } = {}) {
 // The bodies on the orbits
 // ---------------------------------------------------------------------------
 
+/**
+ * The part of the hero a body may ride in, as margins in pixels: clear of the header above and
+ * of the next sheet's lip below, and far enough from each side that nothing is cut by an edge.
+ */
+const STAGE = { side: 12, head: 60, foot: 44 };
+
+/**
+ * How far along its orbit a hidden body looks before it comes out, so that none comes out for a
+ * moment and goes again (js/bodies.js: showBodies): so many seconds at the speed bar's middle,
+ * looked at in so many steps.
+ */
+const AHEAD = { seconds: 3, looks: 4 };
+
 function buildBodies() {
   bodyEls = SITE.bodies.map((body) => {
     const link = document.createElement('a');
@@ -637,13 +680,20 @@ function buildBodies() {
     link.tabIndex = -1; // the same links are in the page proper; these are a visual echo
     const dot = document.createElement('i');
     dot.className = 'body__dot';
-    const label = document.createElement('span');
-    label.className = 'body__label';
-    label.textContent = body.label;
-    link.append(dot, label);
+    // Its name, once for each side it can go: js/bodies.js says which, and the other stays unseen.
+    const names = ['right', 'left'].map((side) => {
+      const name = document.createElement('span');
+      name.className = `body__label body__label--${side}`;
+      name.textContent = body.label;
+      return name;
+    });
+    link.append(dot, ...names);
     link.dataset.hidden = 'true';
+    link.dataset.side = 'none';
     return link;
   });
+  bodiesShown = [];
+  glints = [];
   bodiesLayer.replaceChildren(...bodyEls);
   bodiesLayer.addEventListener('pointerover', (event) => {
     if (event.pointerType === 'mouse') hoveredBody = Boolean(event.target.closest('.body'));
@@ -693,29 +743,52 @@ function placeSeal() {
   sealButton.style.height = `${next.height.toFixed(1)}px`;
 }
 
+/** Where a body rides once the bodies have travelled for `seconds`: its place on the page, and how much perspective enlarges it there. */
+function rideAt(seat, seconds) {
+  const body = edition.bodies.find((each) => each.orbit === seat.orbit); // the orbit's start and speed
+  const orbit = edition.orbits[seat.orbit];
+  const angle = body.angle + TAU * seat.share + (edition.spin * TAU * seconds) / body.period;
+  const radius = orbit.radius * (1 + orbit.amp * Math.cos(orbit.lobes * angle + orbit.phase));
+  const at = plate.project(radius * Math.cos(angle), radius * Math.sin(angle));
+  return { x: at.x, y: at.y, size: 0.84 + 0.16 * at.scale };
+}
+
 function placeBodies() {
   placeSeal();
+  if (wordsChanged) measureWords();
+  else if (arrowMoved) measureArrow();
   // The bodies come out once the plate is whole: its lines drawn and its stone at rest.
   const ready = state.stone.lift === 0 && state.stone.time >= drop.rests;
-  bodyEls.forEach((el, index) => {
-    const seat = seats[index];
-    const body = edition.bodies.find((each) => each.orbit === seat.orbit); // the orbit's start and speed
-    const orbit = edition.orbits[seat.orbit];
-    const angle = body.angle + TAU * seat.share + (edition.spin * TAU * state.orbit) / body.period;
-    const radius = orbit.radius * (1 + orbit.amp * Math.cos(orbit.lobes * angle + orbit.phase));
-    const at = plate.project(radius * Math.cos(angle), radius * Math.sin(angle));
-    const size = 0.84 + 0.16 * at.scale;
-    el.style.transform = `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0) scale(${size.toFixed(3)})`;
+  const stage = { left: STAGE.side, top: STAGE.head, right: view.width - STAGE.side, bottom: view.height - STAGE.foot };
+  // The bodies keep the speed bar's time, so the look ahead does too. With motion reduced they are
+  // at rest: there is no way ahead to look along, and each shows wherever it fits.
+  const look = reduceMotion.matches ? 0 : (AHEAD.seconds * tempo) / AHEAD.looks;
+  const riders = seats.map((seat, index) => ({
+    ...rideAt(seat, state.orbit),
+    soon: Array.from({ length: AHEAD.looks }, (_, step) => rideAt(seat, state.orbit + look * (step + 1))),
+    label: bodyNames[index] ?? 0,
+    was: bodiesShown[index],
+  }));
+  bodiesShown = ready ? showBodies(riders, { stage, words: inTheWay, room: ROOM }) : riders.map(() => ({ shown: false, side: null }));
 
-    // The body as it is drawn: from its dot (7 px left of where it rides) to the end of its label.
-    const left = at.x - 7 * size;
-    const right = left + (bodyReach[index] ?? 0) * size;
-    const top = at.y - 12;
-    const bottom = at.y + 12;
-    const offStage = left < 12 || right > view.width - 12 || at.y < 70 || at.y > view.height - 24; // never cut off at an edge
-    const overCopy = wordBoxes.some((box) => right > box.left && left < box.right && bottom > box.top && top < box.bottom);
-    const hidden = String(!ready || offStage || overCopy);
+  const light = { x: state.lightX.value, y: state.lightY.value };
+  bodyEls.forEach((el, index) => {
+    const at = riders[index];
+    el.style.transform = `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0) scale(${at.size.toFixed(3)})`;
+    const { shown, side } = bodiesShown[index];
+    const hidden = String(!shown);
     if (el.dataset.hidden !== hidden) el.dataset.hidden = hidden;
+    const named = side ?? 'none';
+    if (el.dataset.side !== named) el.dataset.side = named;
+
+    // A jewel is lit by the plate's own light: its glint lies on the side the light is on.
+    if (!shown || !SITE.bodies[index].gem) return;
+    const glint = glintToward(at, light);
+    const put = `${glint.x} ${glint.y}`;
+    if (glints[index] === put) return;
+    glints[index] = put;
+    el.style.setProperty('--glint-x', `${glint.x}%`);
+    el.style.setProperty('--glint-y', `${glint.y}%`);
   });
 }
 
@@ -923,8 +996,25 @@ function boot() {
 
   showEdition(chosen.serial, chosen.origin);
   layout();
-  // The words take their own width once the typeface is in; the hero itself may not change size.
-  document.fonts.ready.then(() => measureWords());
+  // The words are not always where layout() found them. They take their own width once the
+  // typeface is in (the hero itself may not change size). They arrive by sliding up into place
+  // (css/site.css: "Arrival"), and are 18 px low until they have. Redraw writes a new serial,
+  // and Copy link changes what its button says.
+  document.fonts.ready.then(wordsMoved);
+  hero.addEventListener('animationend', (event) => {
+    if (event.animationName === 'arrive') wordsMoved();
+  });
+  const wordsWatch = new MutationObserver(wordsMoved);
+  for (const block of copyBlocks) wordsWatch.observe(block, { childList: true, characterData: true, subtree: true });
+  // Only a note is made here: the frame that is drawn next measures. A frame is not drawn for it,
+  // or the plate would be drawn all the way down the page.
+  window.addEventListener(
+    'scroll',
+    () => {
+      arrowMoved = true;
+    },
+    { passive: true },
+  );
 
   // The phones first: if the app in them cannot start, they stay photographs and the turntable still turns.
   const phoneStage = one('[data-turntable]');

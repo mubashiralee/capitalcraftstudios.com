@@ -622,10 +622,17 @@ html:not(.has-plate) .hero__front {
   max-width: calc(var(--wide) + 2 * var(--gutter));
   margin-inline: auto;
   padding: 104px var(--gutter) 36px;
-  pointer-events: none; /* so the bodies underneath stay clickable between the blocks */
+  pointer-events: none; /* so the bodies underneath can be pointed at and pressed */
 }
 
-.hero__inner > * {
+/* The two columns the words stand in run well out past the words (the first is
+   seven twelfths of the window). So the columns take no pointer either: each
+   line, paragraph and row of buttons in them does, and is only as wide as what
+   it holds. A body riding beside the words was otherwise there to see and dead
+   to the mouse. */
+.hero__copy > *,
+.edition > * {
+  width: fit-content;
   pointer-events: auto;
 }
 
@@ -643,6 +650,7 @@ h1 {
 
 h1 .line {
   display: block;
+  width: fit-content; /* each line as wide as its own word, not as the longest: see ".hero__copy > *" */
 }
 
 .lede {
@@ -809,127 +817,149 @@ html:not(.has-plate) .speed {
   outline-offset: -6px;
 }
 
-/* Bodies: the labelled dots that ride the orbits. Placed every frame by main.js. */
+/* Bodies: the jewels and rings that ride the orbits, each with its name.
+   main.js places them every frame. js/bodies.js decides which show and which
+   side each name goes; BODY there holds the sizes these are drawn to, and
+   tests/bodies.test.mjs holds the two together. */
 .body {
   position: absolute;
   left: 0;
   top: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 44px;
-  margin: -22px 0 0 -7px;
-  padding-right: 10px;
+  width: 44px; /* room for a finger, with the jewel in its middle */
+  height: 44px;
+  margin: -22px 0 0 -22px; /* its middle is where it rides */
   color: var(--ink);
   font-size: 0.8125rem;
   font-stretch: 108%;
   font-weight: 650;
   letter-spacing: 0.01em;
+  line-height: 1.5;
   text-decoration: none;
   white-space: nowrap;
-  transform-origin: 7px 50%;
   opacity: 1;
   pointer-events: auto;
-  transition: opacity 260ms ease;
+  transition: opacity 260ms ease, visibility 0s;
   will-change: transform;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .body[data-hidden="true"] {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  transition: opacity 260ms ease, visibility 0s 260ms;
 }
 
 .body__dot {
-  flex: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
   width: 14px;
   height: 14px;
+  margin: -7px 0 0 -7px;
   border-radius: 50%;
   background: var(--paper);
   box-shadow: inset 0 0 0 4px var(--accent);
   transition: transform 200ms var(--ease-out);
 }
 
-/* A product rides as a cut jewel in its own sheet's colour: lit from the top
-   left like the plate, set in a thin bezel of paper, with a soft coloured
-   shadow and a slow halo that rings out from it now and then. */
+/* A product rides as a jewel in its own sheet's colour, set in a thin bezel
+   of paper. It is lit by the plate's own light: main.js moves its glint
+   (--glint-x, --glint-y) to the side the light is on, and the light that has
+   gone through the stone comes out again low on the far side. */
 .body--gem-mt {
   --gem: #12b76a;
   --gem-deep: #0b7a47;
-  --gem-delay: 0s;
 }
 
 .body--gem-dr {
   --gem: #ff4d9a;
   --gem-deep: #b8155a;
-  --gem-delay: -1.3s;
 }
 
 .body--gem-hub {
   --gem: #2bb3dd;
   --gem-deep: #0d6a8e;
-  --gem-delay: -2.6s;
 }
 
 .body--gem-bk {
   --gem: #4f6dff;
   --gem-deep: #2747d8;
-  --gem-delay: -3.9s;
+}
+
+.body--gem {
+  --glint-x: 36%;
+  --glint-y: 28%;
 }
 
 .body--gem .body__dot {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  margin-left: -1px;
-  background: radial-gradient(
-    circle at 34% 28%,
-    #ffffff 0 8%,
-    color-mix(in oklab, var(--gem) 45%, #ffffff) 20%,
-    var(--gem) 50%,
-    var(--gem-deep) 100%
-  );
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  background:
+    /* the glint: the lamp, mirrored in the stone */
+    radial-gradient(6px circle at var(--glint-x) var(--glint-y), #ffffff 0 12%, color-mix(in oklab, var(--gem) 30%, #ffffff) 40%, transparent 100%),
+    /* the light that went in, coming out again at the far rim */
+    radial-gradient(
+      7px circle at calc(150% - 2 * var(--glint-x)) calc(150% - 2 * var(--glint-y)),
+      color-mix(in oklab, var(--gem) 55%, #ffffff) 0,
+      transparent 100%
+    ),
+    /* the stone: deeper toward its edge, where it turns away */
+    radial-gradient(circle closest-side at 50% 50%, var(--gem) 42%, var(--gem-deep) 100%);
   box-shadow:
     0 0 0 1.5px var(--paper),
-    0 0 0 2.5px color-mix(in oklab, var(--gem) 50%, transparent),
-    0 3px 10px color-mix(in oklab, var(--gem) 45%, transparent);
+    0 0 0 2.5px color-mix(in oklab, var(--gem-deep) 58%, transparent),
+    0 1px 2px 2px rgb(13 26 20 / 0.1),
+    0 5px 9px -1px rgb(13 26 20 / 0.26);
 }
 
-.body--gem .body__dot::after {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--gem);
-  opacity: 0;
-  animation: gem-halo 5.2s var(--ease-out) var(--gem-delay) infinite;
+/* Under UV a stone's shadow is lost in the dark. Its setting lights up instead:
+   a clean ring in its own colour, not a blur of light round it. */
+:root[data-theme="uv"] .body--gem .body__dot {
+  box-shadow:
+    0 0 0 1.5px var(--paper),
+    0 0 0 2.5px color-mix(in oklab, var(--gem) 72%, transparent);
 }
 
-@keyframes gem-halo {
-  0%,
-  62% {
-    opacity: 0;
-    transform: scale(1);
-  }
-
-  66% {
-    opacity: 0.7;
-  }
-
-  100% {
-    opacity: 0;
-    transform: scale(2.4);
-  }
-}
-
+/* A body's name is there twice, once for each side it can go. The one that is
+   wanted shows; a name that changes side goes out on one before it comes in
+   on the other. */
 .body__label {
+  position: absolute;
+  top: 50%;
   padding: 3px 9px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--paper) 82%, transparent);
+  translate: 0 -50%;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 140ms ease, visibility 0s 140ms, background-color 200ms ease, color 200ms ease;
+}
+
+.body__label--right {
+  left: calc(50% + 18px);
+}
+
+.body__label--left {
+  right: calc(50% + 18px);
+}
+
+.body[data-side="right"] .body__label--right,
+.body[data-side="left"] .body__label--left {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 220ms ease 110ms, visibility 0s 110ms, background-color 200ms ease, color 200ms ease;
+}
+
+.body:active .body__dot {
+  transform: scale(0.9);
+  transition-duration: 100ms;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .body:hover .body__dot {
-    transform: scale(1.35);
+    transform: scale(1.3);
   }
 
   .body:hover .body__label {
@@ -940,6 +970,10 @@ html:not(.has-plate) .speed {
   .body--gem:hover .body__label {
     background: var(--gem-deep);
     color: #ffffff;
+  }
+
+  .body:hover:active .body__dot {
+    transform: scale(1.16);
   }
 }
 
@@ -970,14 +1004,6 @@ html:not(.has-plate) .speed {
     grid-row: 3;
   }
 
-  /* On a phone the orbits are mostly off screen: the bodies become plain dots. */
-  .body__label {
-    display: none;
-  }
-
-  .body {
-    pointer-events: none;
-  }
 }
 
 /* ---------- The next arrow ----------
@@ -2917,11 +2943,6 @@ div.bk__row {
     transition-duration: 0s !important;
     transition-delay: 0s !important;
     animation-duration: 0.01ms !important;
-  }
-
-  /* A product's halo repeats for ever: at a token length it would only flicker. */
-  .body--gem .body__dot::after {
-    animation: none;
   }
 }
 
