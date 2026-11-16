@@ -1,5 +1,5 @@
-// Checks on the Orchestration Hub's icon: it is the brain its sheet draws, made small; the file in
-// img/ is the current drawing and will draw; and the Hub's sheet shows it.
+// Checks on the Orchestration Hub's icon: it is a mind, with a lobe for each stage its sheet names;
+// the file in img/ is the current drawing and will draw; and the Hub's sheet shows it.
 // Run with: node --test tests/
 
 import assert from 'node:assert/strict';
@@ -58,8 +58,8 @@ function lightness(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-test('the icon is the brain the sheet draws: a lobe for each stage of a job, each a deeper blue than the one before', () => {
-  // js/cortex.js gives each stage a lobe to live in; the icon has those lobes and no others.
+test('the icon has a lobe for each stage of a job the sheet names, each a deeper blue than the one before', () => {
+  // js/cortex.js names the stages; the icon has a lobe for each of them and no others.
   assert.deepEqual(HUB_ICON.lobes.map((lobe) => lobe.stage).sort(), REGIONS.map((region) => region.stage).sort());
   const inOrder = STAGES.map((stage) => HUB_ICON.lobes.find((lobe) => lobe.stage === stage));
   for (let i = 1; i < inOrder.length; i += 1) {

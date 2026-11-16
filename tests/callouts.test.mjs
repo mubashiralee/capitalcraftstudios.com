@@ -1,4 +1,4 @@
-// Where the names of the Hub's stages stand round its brain, and the wire from a held release to
+// Where the names of the Hub's stages stand round its mind, and the wire from a held release to
 // the page's button (js/callouts.js).
 // Run with: node --test tests/
 
@@ -6,16 +6,16 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { NAMES, SEAT, layNames, port, underCard, wire, wireAt } from '../js/callouts.js';
-import { MIDDLE, REGIONS, project } from '../js/cortex.js';
+import { PLATE, REGIONS, project } from '../js/cortex.js';
 
-// A brain 600 across and 400 down, in the middle of a room with plenty of space round it.
+// A mind 600 across and 400 down, in the middle of a room with plenty of space round it.
 const plate = { x: 500, y: 400, across: 300, down: 200, tall: 20, room: { left: 0, top: 0, right: 1000, bottom: 800 } };
 const box = (name, wide) => ({ left: name.x, top: name.y, right: name.x + wide, bottom: name.y + plate.tall });
 const touching = (a, b, gap = 0) => a.left < b.right + gap && b.left < a.right + gap && a.top < b.bottom + gap && b.top < a.bottom + gap;
-/** How far out from the middle of the brain a point is: 1 on its edge. */
+/** How far out from the middle of the mind a point is: 1 on its edge. */
 const out = (x, y, on = plate) => Math.hypot((x - on.x) / on.across, (y - on.y) / on.down);
 
-test('a name stands beside the brain, level with its region, on the side its region is on', () => {
+test('a name stands beside the mind, level with its region, on the side its region is on', () => {
   const sides = [
     { region: { x: 350, y: 400 }, side: -1 },
     { region: { x: 650, y: 400 }, side: 1 },
@@ -31,28 +31,28 @@ test('a name stands beside the brain, level with its region, on the side its reg
     // Its leader ends on the end of the name that faces the region.
     assert.deepEqual([name.tipX, name.tipY], [side < 0 ? name.x + 60 : name.x, region.y]);
   }
-  // At the brain's widest the name stands `pad` off its edge, and nearer its top it tucks in with the edge.
+  // At the mind's widest the name stands `pad` off its edge, and nearer its top it tucks in with the edge.
   const [wide] = layNames([{ x: 650, y: 400, depth: 0, wide: 60 }], plate);
   assert.ok(Math.abs(wide.x - (plate.x + plate.across + NAMES.pad)) < 1e-9);
   const [high] = layNames([{ x: 650, y: 260, depth: 0, wide: 60 }], plate);
   assert.ok(high.x < wide.x - 40, 'a name near the top stands as far out as one at the middle');
-  // Every corner of the name is clear of the brain, wherever the region is.
+  // Every corner of the name is clear of the mind, wherever the region is.
   for (let turn = 0; turn < Math.PI * 2; turn += 0.05) {
     for (const reach of [0.2, 0.6, 0.95]) {
       const region = { x: plate.x + Math.cos(turn) * plate.across * reach, y: plate.y + Math.sin(turn) * plate.down * reach, depth: 0, wide: 60 };
       const [name] = layNames([region], plate);
       const corners = [[name.x, name.y], [name.x + 60, name.y], [name.x, name.y + plate.tall], [name.x + 60, name.y + plate.tall]];
-      for (const [x, y] of corners) assert.ok(out(x, y) > 1, `a region ${reach} of the way out, turned ${turn.toFixed(2)}: a corner of its name is over the brain`);
+      for (const [x, y] of corners) assert.ok(out(x, y) > 1, `a region ${reach} of the way out, turned ${turn.toFixed(2)}: a corner of its name is over the mind`);
     }
   }
 });
 
-test('a region on the crown, under the foot or out beyond the edge of the brain still gets a name clear of it', () => {
+test('a region on the crown, under the foot or out beyond the edge of the mind still gets a name clear of it', () => {
   // On the crown and under the foot the edge falls away fast: the name stops short of the very top and bottom.
   for (const y of [plate.y - plate.down, plate.y + plate.down]) {
     const [name] = layNames([{ x: plate.x + 10, y, depth: 0, wide: 60 }], plate);
     assert.ok(name.shown && Math.abs(name.y + plate.tall / 2 - plate.y) <= plate.down * NAMES.crown + 1e-9, 'the name is level with the very top or foot');
-    assert.ok(out(name.x, name.y) > 1 && out(name.x, name.y + plate.tall) > 1, 'the name is over the brain');
+    assert.ok(out(name.x, name.y) > 1 && out(name.x, name.y + plate.tall) > 1, 'the name is over the mind');
   }
   // A region that pokes out past the edge: its name goes beyond it, never back over it.
   const region = { x: plate.x + 340, y: plate.y, depth: 0, wide: 60 };
@@ -60,7 +60,7 @@ test('a region on the crown, under the foot or out beyond the edge of the brain 
   assert.ok(Math.abs(name.x - (region.x + NAMES.pad)) < 1e-9, `the name starts at ${name.x}, its region is at ${region.x}`);
 });
 
-test('a name changes sides only once its region is well past the middle of the brain', () => {
+test('a name changes sides only once its region is well past the middle of the mind', () => {
   const at = (x, was) => layNames([{ x, y: 400, depth: 0, wide: 60, was }], plate)[0].side;
   const band = plate.across * NAMES.across;
   // With no side yet, it takes the side its region is on.
@@ -84,7 +84,7 @@ test('two regions the same way out: the nearer keeps its own place, and the furt
     assert.ok(!touching(box(nearName, 60), box(farName, 60), NAMES.gap), 'the two names touch');
     assert.ok(touching(box(nearName, 60), box(farName, 60), NAMES.gap + 0.01), 'the further name was moved more than it had to be');
     // Straight down from its own place is the least move here: up is further, across is further still,
-    // and back towards the middle would put it over the brain.
+    // and back towards the middle would put it over the mind.
     assert.equal(farName.seat, SEAT.below);
     assert.equal(farName.x, own.x);
     assert.ok(farName.y > own.y && farName.y - own.y < plate.tall + NAMES.gap);
@@ -92,19 +92,19 @@ test('two regions the same way out: the nearer keeps its own place, and the furt
   }
 });
 
-test('a name is never moved in over the brain to get out of another\'s way', () => {
+test('a name is never moved in over the mind to get out of another\'s way', () => {
   // Two regions high on the right, level with each other. Under the first name would be the least move for the
-  // second, but there the brain is wider: it would lie over the edge.
+  // second, but there the mind is wider: it would lie over the edge.
   const near = { x: 500, y: 300, depth: -0.5, wide: 60 };
   const far = { x: 520, y: 300, depth: 0.5, wide: 60 };
   const [nearName, farName] = layNames([near, far], plate);
   assert.deepEqual([nearName.seat, farName.shown, farName.seat], [SEAT.home, true, SEAT.above]);
   const corners = [[farName.x, farName.y], [farName.x + 60, farName.y], [farName.x, farName.y + plate.tall], [farName.x + 60, farName.y + plate.tall]];
-  for (const [x, y] of corners) assert.ok(out(x, y) > 1, 'a corner of the moved name is over the brain');
+  for (const [x, y] of corners) assert.ok(out(x, y) > 1, 'a corner of the moved name is over the mind');
   // The move it did not take: straight down, by less.
   const under = { left: farName.x, top: nearName.y + plate.tall + NAMES.gap, right: farName.x + 60, bottom: nearName.y + 2 * plate.tall + NAMES.gap };
   assert.ok(under.top - nearName.y < nearName.y - farName.y + 1e-3, 'down was not the lesser move: this test proves nothing');
-  assert.ok(out(under.left, under.bottom) < 1, 'under the first name is clear of the brain: this test proves nothing');
+  assert.ok(out(under.left, under.bottom) < 1, 'under the first name is clear of the mind: this test proves nothing');
 });
 
 test('a name with nowhere to stand is not shown', () => {
@@ -140,7 +140,7 @@ test('a name is kept whole inside the room it has, and still clear of the others
 });
 
 test('a name keeps its own place until it truly touches another, and once moved goes back only with room to spare', () => {
-  // The nearer region's name is at the right of the brain. The further one starts well above it and comes down towards it.
+  // The nearer region's name is at the right of the mind. The further one starts well above it and comes down towards it.
   const near = { x: 650, y: 400, depth: -0.5, wide: 60 };
   const [fixed] = layNames([near], plate);
   const further = (y, was) => ({ x: 650, y, depth: 0.5, wide: 60, was });
@@ -178,29 +178,27 @@ test('a name keeps its own place until it truly touches another, and once moved 
   assert.equal(seatOf(low, { shown: true, seat: SEAT.above, side: -1 }), SEAT.below, 'a name that has just changed sides kept the seat it had on the other side');
 });
 
-test('round a whole turn of the real brain no two names ever touch, each is shown nearly all the time, and none jumps about', () => {
+test('round a whole turn of the real mind no two names ever touch, each is shown nearly all the time, and none jumps about', () => {
   const widths = [46, 38, 40, 48]; // Queue, Build, Audit, Merge at the size the page sets them
   const tallies = widths.map(() => ({ shown: 0, moved: 0 }));
   let frames = 0;
   for (const [pitch, scale, room] of [
     [0.24, 300, { left: 60, top: 40, right: 940, bottom: 760 }], // a desktop stage
-    [0.24, 150, { left: 310, top: 240, right: 690, bottom: 560 }], // a phone's: no room beside the brain
+    [0.24, 150, { left: 310, top: 240, right: 690, bottom: 560 }], // a phone's: no room beside the mind
   ]) {
     const view = { yaw: 0, pitch, scale, x: 500, y: 400 };
-    const brain = { x: 0, y: 0, across: scale * 0.98, down: scale * 0.7, tall: 20, room };
+    // The plate the names keep off, as the page sets it (js/hub.js): the mind's own, about where its middle lands.
+    const mind = { x: view.x, y: view.y + PLATE.low * scale, across: PLATE.across * scale, down: PLATE.down * scale, tall: 20, room };
     let was = widths.map(() => undefined);
     let last = null;
     const P = [0, 0, 0, 0];
     for (let yaw = 0; yaw < Math.PI * 2; yaw += 0.004) {
       view.yaw = yaw;
-      project(...MIDDLE, view, P);
-      brain.x = P[0];
-      brain.y = P[1];
       const regions = REGIONS.map((region, i) => {
         project(...region.centre, view, P);
         return { x: P[0], y: P[1], depth: P[3], wide: widths[i], was: was[i] };
       });
-      const names = layNames(regions, brain);
+      const names = layNames(regions, mind);
       frames += 1;
       names.forEach((name, i) => {
         if (!name.shown) return;
@@ -213,7 +211,7 @@ test('round a whole turn of the real brain no two names ever touch, each is show
           const theirs = { left: other.x, top: other.y, right: other.x + widths[j], bottom: other.y + 20 };
           assert.ok(!touching(mine, theirs, NAMES.gap - 1e-9), `yaw ${yaw.toFixed(3)}: ${REGIONS[i].stage} and ${REGIONS[j].stage} touch`);
         });
-        // From one frame to the next a name in the same seat moves a little: it never leaps across the brain.
+        // From one frame to the next a name in the same seat moves a little: it never leaps across the mind.
         const before = last?.[i];
         if (before?.shown && before.seat === name.seat && before.side === name.side) {
           assert.ok(Math.hypot(name.x - before.x, name.y - before.y) < scale * 0.05, `yaw ${yaw.toFixed(3)}: ${REGIONS[i].stage} leaps ${Math.hypot(name.x - before.x, name.y - before.y).toFixed(1)}`);
@@ -231,8 +229,8 @@ test('round a whole turn of the real brain no two names ever touch, each is show
 test('the wire runs from the gate to the button, and arrives square on to its edge', () => {
   const gate = { x: 900, y: 420 };
   for (const end of [
-    { x: 270, y: 700, nx: 1, ny: 0 }, // the button's right edge: the brain is beside it
-    { x: 200, y: 560, nx: 0, ny: -1 }, // its top edge: the brain is above it
+    { x: 270, y: 700, nx: 1, ny: 0 }, // the button's right edge: the mind is beside it
+    { x: 200, y: 560, nx: 0, ny: -1 }, // its top edge: the mind is above it
   ]) {
     const line = wire(gate, end);
     assert.equal(line.length, 4);
@@ -256,11 +254,11 @@ test('the wire runs from the gate to the button, and arrives square on to its ed
   }
 });
 
-test('the wire arrives at the side of the button when the brain is beside it, and at its top when the brain is above', () => {
+test('the wire arrives at the side of the button when the mind is beside it, and at its top when the mind is above', () => {
   const button = { left: 40, top: 700, right: 260, bottom: 750 };
   assert.deepEqual(port(button, { x: 900, y: 450 }), { x: 260, y: 725, nx: 1, ny: 0 });
   assert.deepEqual(port(button, { x: -300, y: 650 }), { x: 40, y: 725, nx: -1, ny: 0 });
-  // Above it: the wire comes down onto the top edge, as near under the brain as the button's round ends allow.
+  // Above it: the wire comes down onto the top edge, as near under the mind as the button's round ends allow.
   assert.deepEqual(port(button, { x: 150, y: 300 }), { x: 150, y: 700, nx: 0, ny: -1 });
   assert.deepEqual(port(button, { x: 255, y: 300 }), { x: 235, y: 700, nx: 0, ny: -1 });
   assert.deepEqual(port(button, { x: 380, y: 300 }), { x: 235, y: 700, nx: 0, ny: -1 });

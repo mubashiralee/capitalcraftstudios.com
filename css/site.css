@@ -1944,7 +1944,7 @@ html:not(.has-plate) .speed {
 }
 
 /* The button that lets a release through. It is the far end of a thread from the gate in the
-   brain (js/hub.js), and says how near a release is: an outline while nothing waits, filling as
+   mind (js/hub.js), and says how near a release is: an outline while nothing waits, filling as
    one comes, solid amber when it is there to be approved, green as it goes through. */
 .btn--signal {
   position: relative;
@@ -2012,7 +2012,7 @@ html:not(.has-plate) .speed {
   }
 }
 
-/* Where the brain stands (js/hub.js). Without script, the four stages every job goes through.
+/* Where the mind stands (js/hub.js). Without script, the four stages every job goes through.
    It has no height of its own: it takes what the window leaves, so the sheet fits one window. */
 .hub__stage {
   position: relative;
@@ -2055,7 +2055,7 @@ html:not(.has-plate) .speed {
   border-left: 1px solid rgb(255 255 255 / 0.12);
 }
 
-/* The picture: the desk, the brain and the work, one over another, behind the whole slab and a
+/* The picture: the desk, the mind and the work, one over another, behind the whole slab and a
    little beyond it, so that light is never cut off at an edge. */
 .hub__scene {
   position: absolute;
@@ -2071,7 +2071,7 @@ html:not(.has-plate) .speed {
   height: 100%;
 }
 
-/* The names of the stages, set out round the brain as on an anatomical plate (js/callouts.js). */
+/* The names of the stages, set out round the mind as on the plate of a star chart (js/callouts.js). */
 .hub__label {
   position: absolute;
   top: 0;
@@ -2201,7 +2201,7 @@ html:not(.has-plate) .speed {
     margin-top: clamp(6px, 2vw, 16px);
   }
 
-  /* The button comes straight after the brain it answers, ahead of the words. */
+  /* The button comes straight after the mind it answers, ahead of the words. */
   .hub__body {
     display: flex;
     flex-direction: column;

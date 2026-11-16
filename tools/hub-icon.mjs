@@ -1,11 +1,10 @@
 // The Orchestration Hub's icon: a mind.
 //
-// The Hub's sheet shows the Hub as a brain (js/cortex.js): each of the four
-// stages a job goes through lives in a lobe, and the orchestrator sits in the
-// middle of them. The icon is that picture made small. A brain seen from the
-// side; a lobe for each stage, a deeper blue the further a job has come; the
-// lobes parted by grooves that all run to one lit stone in the middle, with
-// its light running out along them.
+// A brain seen from the side. Each of the four stages a job goes through
+// (js/cortex.js names them) has a lobe, a deeper blue the further a job has
+// come; the lobes are parted by grooves that all run to one lit stone in the
+// middle, where the orchestrator sits, with its light running out along them.
+// The Hub's sheet draws the same mind another way: a constellation under glass.
 //
 // This file only works the picture out. tools/make-hub-icon.mjs writes it to
 // img/orchestration-hub-icon.svg, and tests/hub-icon.test.mjs fails if that

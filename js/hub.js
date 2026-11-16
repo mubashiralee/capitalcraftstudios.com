@@ -1,17 +1,18 @@
-// The Orchestration Hub, drawn as its own brain: the Hub's Cortex view, made for this page.
+// The Orchestration Hub, drawn as its own mind: a constellation under glass, after the Hub's
+// Cortex view, made for this page.
 //
-// The brain floats over the one desk the whole floor is run from. The work on the floor
+// The mind floats over the one desk the whole floor is run from. The work on the floor
 // (js/floor.js) runs through it: the orchestrator fires each job into Queue, it crosses region to
 // region, the decision model weighs every build, and a release stops at the gate. A thread runs
 // from the gate to the page's own button: the button fills as the release comes, and nothing
 // ships until the visitor presses it. Then the release lands in Merge and a wave of light crosses
-// the brain. The accounts the work runs on are gauges on the desk's rim. Point at the
+// the mind. The accounts the work runs on are gauges on the desk's rim. Point at the
 // orchestrator, the decision model or the accounts and the rest dims while that part shows what
 // it does.
 //
-// Three layers, one over another, all the size of the slab: the desk (a plain canvas), the brain
+// Three layers, one over another, all the size of the slab: the desk (a plain canvas), the mind
 // itself (the graphics card: js/hub-cloud.js), and the work and its lines (a plain canvas). The
-// names of the stages are the page's own text, set out round the brain (js/callouts.js).
+// names of the stages are the page's own text, set out round the mind (js/callouts.js).
 //
 // The numbers are in js/cortex.js, js/callouts.js and js/floor.js; this file only draws them.
 // The jobs are made up: it is a picture of how the Hub works, not a feed.
@@ -20,17 +21,22 @@ import { NAMES, layNames, port, underCard, wire, wireAt } from './callouts.js';
 import {
   BAND,
   DECISION,
+  GLASS,
   LOOK,
   ORCHESTRATOR,
   PLATE,
+  PART,
+  PLAN,
   REGIONS,
+  SPARE,
   TAU,
   along,
   approach,
   bandAt,
-  buildCortex,
+  buildMind,
   createAccounts,
   frameFor,
+  glassOutline,
   onDesk,
   placeOf,
   pointOf,
@@ -47,13 +53,36 @@ import { finePointer, reduceMotion, whileVisible } from './motion.js';
 import { createWheel } from './wheel.js';
 
 const LANES = 5;
-const SPIN = 0.07; // radians a second the brain turns by itself
-const DIM = 0.45; // how bright the rest of the brain stays while one part is shown
-const GATHER = 1.9; // seconds the brain takes to gather when it is first seen
+const SPIN = 0.07; // radians a second the mind turns by itself
+const DIM = 0.45; // how bright the rest of the mind stays while one part is shown
+const GATHER = 1.9; // seconds the mind takes to gather when it is first seen
 const CLEARED = 1.5; // seconds the button stays green after a release is approved
 const DENSE = { wide: 14, narrow: 9 }; // how many times the plain cloud's points the graphics card is given
+const MARKS = { full: 230, least: 0.68 }; // the marks of the work are drawn full size where a unit of the mind is this many pixels or more; in a smaller picture smaller, down to this share
+const BURST = 4; // how many points fire where a job comes to rest
 const SEAT_SPAN = 0.17; // radians each account's gauge runs either side of its seat on the desk's rim
 const PULSE = 0.5; // seconds the approval takes to run back up the thread to the gate
+/**
+ * The glass, as far as this file draws it. `inner` is the light inside it at its brightest,
+ * `wide` how far that light reaches (in units of the mind), `flat` how much lower than wide it
+ * is and `low` how far under the glass's middle it sits; `body` the wash over the whole dome and
+ * `edge` its outline. Each of `arcs` is a line of lamp light along the outline: from and to (as
+ * shares of the way from the rim on the left, over the crown, to the rim on the right), how far
+ * in from the outline it runs, how bright it is and how wide.
+ */
+const GLASS_LIGHT = Object.freeze({
+  inner: 0.24,
+  wide: 0.84,
+  flat: 0.62,
+  low: 0.06,
+  body: 0.06,
+  edge: 0.2,
+  arcs: Object.freeze([
+    [0.21, 0.43, 0.05, 0.72, 1.3],
+    [0.26, 0.37, 0.1, 0.26, 1],
+    [0.79, 0.9, 0.045, 0.2, 1],
+  ]),
+});
 
 // What each part does, for a business deciding whether we can build this for them.
 const PARTS = Object.freeze({
@@ -93,7 +122,7 @@ const ease = (t) => t * t * (3 - 2 * t);
 /**
  * @param {{ slab: HTMLElement, stage: HTMLElement, button: HTMLButtonElement, status: HTMLElement }} parts
  *   `slab` holds the whole of the Hub's sheet between its head and its foot, and is drawn behind;
- *   `stage` is emptied, and is where the brain stands and is turned; `button` approves the waiting
+ *   `stage` is emptied, and is where the mind stands and is turned; `button` approves the waiting
  *   release; `status` is told, for screen readers, when a release starts to wait.
  */
 export function startHub({ slab, stage, button, status }) {
@@ -101,7 +130,7 @@ export function startHub({ slab, stage, button, status }) {
   scene.setAttribute('role', 'img');
   scene.setAttribute(
     'aria-label',
-    'The Orchestration Hub drawn as a brain over one desk: jobs fire from the orchestrator through Queue, Build, Audit and Merge, and a release waits for your approval.',
+    'The Orchestration Hub drawn as a constellation under glass over one desk: jobs run from the orchestrator through Queue, Build, Audit and Merge, and a release waits for your approval.',
   );
   const under = make('canvas', 'hub__layer');
   const glass = make('canvas', 'hub__layer');
@@ -162,7 +191,7 @@ export function startHub({ slab, stage, button, status }) {
     ink('--ink-4', [63, 143, 196]),
     ink('--ink-5', [58, 114, 180]),
   ];
-  C.tissue = mix([86, 138, 222], C.calm, 0.3);
+  C.dust = mix([86, 138, 222], C.calm, 0.3);
   C.deep = mix([30, 58, 128], C.ground, 0.25);
   C.pale = mix(C.white, C.calm, 0.18);
   C.lit = mix(C.calm, C.white, 0.25);
@@ -193,36 +222,44 @@ export function startHub({ slab, stage, button, status }) {
     on.drawImage(light(c), x - radius, y - radius, radius * 2, radius * 2);
   }
 
-  // ----- the brain, the floor and the accounts -----
-  // The plain cloud is light enough to draw point by point, and is where single neurons are picked
-  // from. The graphics card is given the same brain many times as dense, once the page is idle.
-  const brain = buildCortex();
-  const owner = regionOfPoints(brain);
-  const drawLite = createLiteCloud(brain, owner, { tissue: C.tissue, lit: C.lit, cleared: C.wave });
-  let cloud = null; // the brain on the graphics card, once it is built
+  // ----- the mind, the floor and the accounts -----
+  // The plain cloud is light enough to draw point by point, and is where the points that fire are
+  // picked from. The graphics card is given the same mind many times as dense, once the page is idle.
+  // A small picture (a phone) is given the sparer constellation, decided once: the picture a visitor first sees is the one they keep.
+  const small = matchMedia('(max-width: 899px)').matches;
+  const plan = small ? SPARE : PLAN;
+  const mind = buildMind(seeded(42), 1, plan);
+  const owner = regionOfPoints(mind);
+  // The points of the constellation in each stage's region: where it fires when work lands there.
+  const fires = REGIONS.map((_, region) => {
+    const points = [];
+    for (let i = 0; i < mind.count; i += 1) if (owner[i] === region && mind.part[i] !== PART.halo) points.push(i);
+    return points;
+  });
+  const drawLite = createLiteCloud(mind, owner, { dust: C.dust, pale: C.pale, lit: C.lit, cleared: C.wave });
+  let cloud = null; // the mind on the graphics card, once it is built
   const floor = createFloor({ lanes: LANES });
   const accounts = createAccounts();
   const random = seeded(Date.now() >>> 0);
 
   function buildCloud() {
-    const density = matchMedia('(max-width: 899px)').matches ? DENSE.narrow : DENSE.wide;
-    const many = buildCortex(seeded(42), density);
+    const many = buildMind(seeded(42), small ? DENSE.narrow : DENSE.wide, plan);
     try {
       // The card can take its context away and hand it back (a sleeping laptop, a driver that
       // restarts): the canvas is wiped both times, so the picture has changed and is drawn again.
-      cloud = createCloud(glass, many, regionOfPoints(many), { deep: C.deep, tissue: C.tissue, pale: C.pale, lit: C.lit, cleared: C.wave }, () => {
+      cloud = createCloud(glass, many, regionOfPoints(many), { deep: C.deep, dust: C.dust, pale: C.pale, lit: C.lit, cleared: C.wave }, () => {
         dirty = true;
       });
     } catch (error) {
-      // A graphics card that will not build the shader: the brain is still drawn, by the plain cloud. Say why.
-      console.error('The Hub is drawing its plainer brain: the graphics card refused the full one.', error);
+      // A graphics card that will not build the shader: the mind is still drawn, by the plain cloud. Say why.
+      console.error('The Hub is drawing its plainer picture: the graphics card refused the full one.', error);
       cloud = null;
     }
     if (cloud) cloud.size(SW, SH, dpr);
     else glass.remove();
-    // For anyone looking at the page from outside: which brain is being drawn, and of how many points.
+    // For anyone looking at the page from outside: which cloud is being drawn, and of how many points.
     scene.dataset.cloud = cloud ? 'card' : 'plain';
-    scene.dataset.points = String(cloud ? many.count : brain.count);
+    scene.dataset.points = String(cloud ? many.count : mind.count);
     dirty = true;
     if (reduceMotion.matches) draw();
   }
@@ -239,8 +276,9 @@ export function startHub({ slab, stage, button, status }) {
   let pill = null; // the button, or null while it has no size
   let nameTall = 18;
   const nameWide = labels.map(() => 60);
+  let mark = 1; // how large the marks of the work are drawn: smaller in a small picture, so that they do not crowd it
   const view = { yaw: LOOK.yaw, pitch: LOOK.pitch, scale: 100, x: 0, y: 0 };
-  const flat = { yaw: 0, pitch: LOOK.pitch, scale: 100, x: 0, y: 0 }; // the desk does not turn with the brain
+  const flat = { yaw: 0, pitch: LOOK.pitch, scale: 100, x: 0, y: 0 }; // the desk does not turn with the mind
 
   /** Where a part of the slab starts, from the slab's own top left. */
   function within(el) {
@@ -283,6 +321,7 @@ export function startHub({ slab, stage, button, status }) {
     const frame = frameFor(W, H);
     const names = Math.max(...nameWide) + NAMES.pad;
     view.scale = Math.max(40, Math.min(frame.scale, ((room.right - room.left) / 2 - names) / PLATE.across));
+    mark = clamp(view.scale / MARKS.full, MARKS.least, 1);
     view.x = ox + frame.x;
     view.y = oy + frame.y;
     flat.scale = view.scale;
@@ -302,7 +341,7 @@ export function startHub({ slab, stage, button, status }) {
 
   // ----- turning it by hand -----
   const wheel = createWheel();
-  let spun = 0; // the brain's own turning
+  let spun = 0; // the mind's own turning
   let press = null;
   const angleAt = (x) => (x / Math.max(1, W)) * Math.PI * 1.4;
   stage.addEventListener('pointerdown', (event) => {
@@ -314,7 +353,7 @@ export function startHub({ slab, stage, button, status }) {
     try {
       stage.setPointerCapture(event.pointerId);
     } catch {
-      // A pointer the page made up for itself cannot be captured; turning still works while it stays over the brain.
+      // A pointer the page made up for itself cannot be captured; turning still works while it stays over the mind.
     }
   });
   stage.addEventListener('pointermove', (event) => {
@@ -347,7 +386,7 @@ export function startHub({ slab, stage, button, status }) {
   const placed = new Map(); // job id -> where it was last frame
   const known = new Set();
   let ring = []; // { at, c, born, size }
-  let sparks = []; // { i (a point of the brain), c, born, life }
+  let sparks = []; // { i (a point of the mind), c, born, life }
   let wave = null; // { from, born }
   let lastMerged = 0;
   let releaseId = 0;
@@ -356,7 +395,7 @@ export function startHub({ slab, stage, button, status }) {
   let dirty = true;
   let focus = null; // the part being shown: 'orchestrator', 'decision' or 'accounts'
   let dimmed = 1;
-  let born = reduceMotion.matches ? 1 : 0; // 0 as the brain starts to gather, 1 once it has
+  let born = reduceMotion.matches ? 1 : 0; // 0 as the mind starts to gather, 1 once it has
   let seen = false;
   let coming = 0; // how near the release on the floor is to the gate, 0 to 1, as the button shows it
   let clearedUntil = -1; // the button stays green until the clock reaches this
@@ -377,7 +416,7 @@ export function startHub({ slab, stage, button, status }) {
       if (before && before.from !== before.to && place.from === place.to) {
         const at = spot(place.to, job.id);
         ring.push({ at, c: job.kind === 'Release' ? C.clear : C.calm, born: clock, size: 18 });
-        burst(place.to, 5);
+        burst(place.to, BURST);
       }
       placed.set(job.id, place);
     }
@@ -395,9 +434,9 @@ export function startHub({ slab, stage, button, status }) {
   }
 
   function burst(region, count) {
-    for (let n = 0; n < count; n += 1) {
-      const i = Math.floor(random() * brain.count);
-      if (owner[i] === region) sparks.push({ i, c: C.calm, born: clock, life: 0.5 + random() * 0.4 });
+    const points = fires[region];
+    for (let n = 0; n < count && points.length > 0; n += 1) {
+      sparks.push({ i: points[Math.floor(random() * points.length)], c: C.calm, born: clock, life: 0.5 + random() * 0.4 });
     }
   }
 
@@ -550,7 +589,7 @@ export function startHub({ slab, stage, button, status }) {
     cardBox.bottom = cardBox.top + tall;
   }
 
-  // ----- the names of the stages, set out round the brain -----
+  // ----- the names of the stages, set out round the mind -----
   const named = REGIONS.map(() => ({ x: 0, y: 0, depth: 0, wide: 0, was: undefined }));
   const names = REGIONS.map(() => ({ live: false, seat: 0, side: 0, x: 0, y: 0, tipX: 0, tipY: 0, alpha: 0, depth: 0, px: 0, py: 0, lit: null }));
   const nameBox = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -594,7 +633,7 @@ export function startHub({ slab, stage, button, status }) {
       let wanted = 0;
       if (to.shown) {
         // A name follows its region while it keeps its seat. One that must change seats or sides
-        // goes out where it is and comes in at the new place: it never slides across the brain.
+        // goes out where it is and comes in at the new place: it never slides across the mind.
         if (!name.live || (to.seat === name.seat && to.side === name.side) || name.alpha < 0.04 || quick === 1) {
           take();
           wanted = 1;
@@ -621,7 +660,7 @@ export function startHub({ slab, stage, button, status }) {
     });
   }
 
-  // ----- drawing: the desk, under the brain -----
+  // ----- drawing: the desk, under the mind -----
   /** A ring on the desk, `out` of the way to its rim, from one angle to another, as a path. */
   function ringPath(on, out, from = 0, to = TAU, steps = 120) {
     on.beginPath();
@@ -650,15 +689,15 @@ export function startHub({ slab, stage, button, status }) {
     const gathered = ease(clamp(born * 1.6, 0, 1));
     const shown = gathered * (0.55 + 0.45 * quiet);
 
-    // The light the brain throws down on it.
+    // The light the mind throws down on it.
     u.save();
     u.translate(view.x, midY);
     u.scale(1, flatness);
     const pool = u.createRadialGradient(0, 0, 0, 0, 0, wide);
-    pool.addColorStop(0, css(C.tissue, 0.3 * shown));
-    pool.addColorStop(0.45, css(C.tissue, 0.11 * shown));
-    pool.addColorStop(0.86, css(C.tissue, 0.035 * shown));
-    pool.addColorStop(1, css(C.tissue, 0));
+    pool.addColorStop(0, css(C.dust, 0.3 * shown));
+    pool.addColorStop(0.45, css(C.dust, 0.11 * shown));
+    pool.addColorStop(0.86, css(C.dust, 0.035 * shown));
+    pool.addColorStop(1, css(C.dust, 0));
     u.fillStyle = pool;
     u.beginPath();
     u.arc(0, 0, wide, 0, TAU);
@@ -740,15 +779,100 @@ export function startHub({ slab, stage, button, status }) {
     });
     u.lineCap = 'butt';
 
-    // The body: one soft light behind the cloud.
-    u.globalCompositeOperation = 'lighter';
-    project(0, 0.05, 0.1, view, P);
-    glow(u, P[0], P[1], view.scale * 1.25, C.tissue, 0.2 * quiet * gathered);
+    drawGlass(quiet);
     u.globalCompositeOperation = 'source-over';
     u.globalAlpha = 1;
   }
 
-  // ----- drawing: the work, over the brain -----
+  // ----- drawing: the glass, over the desk and behind the constellation -----
+  // The dome's dust is the graphics card's (js/hub-cloud.js). What makes it read as glass is
+  // drawn here, and does not turn, because the dome is round: the light inside it, the faint
+  // body of it, its edge and its rim as hairlines, and a lamp's light on it.
+  const edge = glassOutline();
+  /** Adds a run of the glass's outline to the path: from one share of its length to another, drawn `inset` of the way in to the glass's middle. */
+  function edgePath(run, from = 0, to = 1, inset = 0) {
+    const last = run.length - 1;
+    const first = Math.round(from * last);
+    for (let n = first; n <= Math.round(to * last); n += 1) {
+      const x = view.x + (run[n][0] + (edge.middle[0] - run[n][0]) * inset) * view.scale;
+      const y = view.y + (run[n][1] + (edge.middle[1] - run[n][1]) * inset) * view.scale;
+      if (n === first) u.moveTo(x, y);
+      else u.lineTo(x, y);
+    }
+  }
+
+  /** A fine arc of light along the glass: brightest in its middle, and gone at both ends. */
+  function sheen(run, from, to, inset, alpha, width) {
+    if (alpha <= 0.004) return;
+    const last = run.length - 1;
+    const a = run[Math.round(from * last)];
+    const b = run[Math.round(to * last)];
+    const paint = u.createLinearGradient(view.x + a[0] * view.scale, view.y + a[1] * view.scale, view.x + b[0] * view.scale, view.y + b[1] * view.scale);
+    paint.addColorStop(0, css(C.white, 0));
+    paint.addColorStop(0.5, css(C.white, Math.min(1, alpha)));
+    paint.addColorStop(1, css(C.white, 0));
+    u.strokeStyle = paint;
+    u.lineWidth = width;
+    u.beginPath();
+    edgePath(run, from, to, inset);
+    u.stroke();
+  }
+
+  function drawGlass(quiet) {
+    // The glass forms as its dust gathers: a little after the desk, and before the work.
+    const shown = ease(clamp((born - 0.1) / 0.7, 0, 1)) * (0.55 + 0.45 * quiet);
+    if (shown <= 0.004) return;
+    const size = view.scale;
+    const mx = view.x + edge.middle[0] * size;
+    const my = view.y + edge.middle[1] * size;
+    u.globalAlpha = 1;
+    u.lineCap = 'round';
+    u.lineJoin = 'round';
+
+    // The light inside it: brightest round the orchestrator, and gone before it reaches the glass.
+    u.globalCompositeOperation = 'lighter';
+    u.save();
+    u.translate(mx, my + GLASS_LIGHT.low * size);
+    u.scale(1, GLASS_LIGHT.flat);
+    const inner = u.createRadialGradient(0, 0, 0, 0, 0, GLASS_LIGHT.wide * size);
+    inner.addColorStop(0, css(C.dust, GLASS_LIGHT.inner * shown));
+    inner.addColorStop(0.5, css(C.dust, GLASS_LIGHT.inner * 0.34 * shown));
+    inner.addColorStop(1, css(C.dust, 0));
+    u.fillStyle = inner;
+    u.beginPath();
+    u.arc(0, 0, GLASS_LIGHT.wide * size, 0, TAU);
+    u.fill();
+    u.restore();
+
+    // Its body: the faintest wash, most on the side the lamp is.
+    const wash = u.createLinearGradient(mx - 0.8 * size, my - 0.5 * size, mx + 0.7 * size, my + 0.45 * size);
+    wash.addColorStop(0, css(C.calm, GLASS_LIGHT.body * shown));
+    wash.addColorStop(1, css(C.calm, 0));
+    u.fillStyle = wash;
+    u.beginPath();
+    edgePath(edge.dome);
+    edgePath(edge.near);
+    u.closePath();
+    u.fill();
+
+    // Its edge and its rim, as hairlines: the near half of the rim plain, the far half seen through the glass.
+    u.lineWidth = 1;
+    for (const [run, alpha] of [[edge.dome, GLASS_LIGHT.edge], [edge.near, GLASS_LIGHT.edge * 1.5], [edge.far, GLASS_LIGHT.edge * 0.5]]) {
+      u.strokeStyle = css(C.inks[1], alpha * shown);
+      u.beginPath();
+      edgePath(run);
+      u.stroke();
+    }
+
+    // A lamp over the viewer's left shoulder: two fine arcs of its light high on the left, where
+    // the glass turns away, and a fainter one low on the right, where the light leaves.
+    for (const [from, to, inset, alpha, width] of GLASS_LIGHT.arcs) {
+      sheen(edge.dome, from, to, inset, alpha * 0.14 * shown, width * 4.5);
+      sheen(edge.dome, from, to, inset, alpha * shown, width);
+    }
+  }
+
+  // ----- drawing: the work, over the mind -----
   function draw() {
     dirty = false;
     view.yaw = LOOK.yaw + spun + wheel.angle;
@@ -779,7 +903,7 @@ export function startHub({ slab, stage, button, status }) {
     ctx.clearRect(0, 0, SW, SH);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    const gathered = ease(clamp((born - 0.35) / 0.65, 0, 1)); // the work appears once the brain is there
+    const gathered = ease(clamp((born - 0.35) / 0.65, 0, 1)); // the work appears once the mind is there
     if (gathered <= 0) {
       layOut(Infinity, 0);
       return;
@@ -794,14 +918,14 @@ export function startHub({ slab, stage, button, status }) {
     drawArteries(gathered);
     drawThread(jobs, gathered);
 
-    // Single neurons where work has just landed, lighting and going out.
+    // Points of the constellation firing where work has just landed, lighting and going out.
     if (!reduceMotion.matches) {
       sparks = sparks.filter((spark) => clock - spark.born < spark.life);
       for (const spark of sparks) {
         const age = (clock - spark.born) / spark.life;
         const i = spark.i;
-        project(brain.at[i * 3], brain.at[i * 3 + 1], brain.at[i * 3 + 2], view, P);
-        glow(ctx, P[0], P[1], (4 + 6 * (1 - age)) * P[2], spark.c, (1 - age) * 0.85 * (0.4 + 0.6 * quiet));
+        project(mind.at[i * 3], mind.at[i * 3 + 1], mind.at[i * 3 + 2], view, P);
+        glow(ctx, P[0], P[1], (4 + 6 * (1 - age)) * P[2] * mark, spark.c, (1 - age) * 0.85 * (0.4 + 0.6 * quiet));
       }
     }
 
@@ -814,11 +938,11 @@ export function startHub({ slab, stage, button, status }) {
       ctx.globalAlpha = (1 - age) * 0.7 * gathered;
       ctx.strokeStyle = css(each.c);
       ctx.beginPath();
-      ctx.arc(P[0], P[1], each.size * P[2] * (0.4 + age), 0, TAU);
+      ctx.arc(P[0], P[1], each.size * P[2] * mark * (0.4 + age), 0, TAU);
       ctx.stroke();
     }
 
-    // The jobs: a bright neuron each, with a tail when it crosses.
+    // The jobs: a bright light each, with a tail when it crosses.
     for (const job of jobs) drawJob(job, gathered);
 
     // The orchestrator and the decision model.
@@ -888,13 +1012,13 @@ export function startHub({ slab, stage, button, status }) {
         if (t <= 0) continue;
         along(a, b, t, Q);
         project(Q[0], Q[1], Q[2], view, P);
-        glow(ctx, P[0], P[1], (7 - n * 0.5) * P[2], c, alpha * (1 - n / 9) * 0.5);
+        glow(ctx, P[0], P[1], (7 - n * 0.5) * P[2] * mark, c, alpha * (1 - n / 9) * 0.5);
       }
     }
     along(a, b, where.from === where.to ? 0 : where.t, Q);
     project(Q[0], Q[1], Q[2], view, P);
     const big = job.kind === 'Release' ? 16 : 10 + job.tier * 1.5;
-    glow(ctx, P[0], P[1], big * P[2], c, alpha);
+    glow(ctx, P[0], P[1], big * P[2] * mark, c, alpha);
     if (job.waiting) {
       // Held at the gate: a slow amber breath.
       const breath = reduceMotion.matches ? 0.5 : 0.5 + 0.5 * Math.sin(clock * 3.2);
@@ -902,7 +1026,7 @@ export function startHub({ slab, stage, button, status }) {
       ctx.strokeStyle = css(C.held);
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(P[0], P[1], (13 + 5 * breath) * P[2], 0, TAU);
+      ctx.arc(P[0], P[1], (13 + 5 * breath) * P[2] * mark, 0, TAU);
       ctx.stroke();
     }
   }
@@ -944,7 +1068,7 @@ export function startHub({ slab, stage, button, status }) {
       curve(thread, c, (cleared || armed ? 0.95 : 0.3 + 0.4 * coming) * lift, 1.4, reach);
     }
 
-    // Where it meets the button, and where it leaves the brain.
+    // Where it meets the button, and where it leaves the mind.
     glow(ctx, end.x, end.y, armed || cleared ? 11 : 6, c, (armed || cleared ? 0.9 : 0.35 + 0.3 * coming) * lift);
     if (!release) glow(ctx, gate[0], gate[1], 7, C.held, 0.4 * lift);
 
@@ -973,19 +1097,19 @@ export function startHub({ slab, stage, button, status }) {
   function drawCentre(gathered) {
     const [x, y] = at.orchestrator;
     const pointed = focus === 'orchestrator';
-    glow(ctx, x, y, pointed ? 34 : 24, C.white, (pointed ? 0.7 : 0.5) * gathered);
+    glow(ctx, x, y, (pointed ? 34 : 24) * mark, C.white, (pointed ? 0.7 : 0.5) * gathered);
     ping(x, y, C.white, 0, gathered);
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = gathered;
     ctx.fillStyle = css(C.white);
     ctx.beginPath();
-    ctx.arc(x, y, pointed ? 4 : 3.2, 0, TAU);
+    ctx.arc(x, y, (pointed ? 4 : 3.2) * mark, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 0.75 * gathered;
     ctx.strokeStyle = css(C.white);
     ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(x, y, pointed ? 10 : 8, 0, TAU);
+    ctx.arc(x, y, (pointed ? 10 : 8) * mark, 0, TAU);
     ctx.stroke();
     ctx.globalCompositeOperation = 'lighter';
   }
@@ -993,9 +1117,9 @@ export function startHub({ slab, stage, button, status }) {
   function drawDecision(gathered) {
     const [x, y] = at.decision;
     const pointed = focus === 'decision';
-    glow(ctx, x, y, pointed ? 26 : 15, C.calm, (pointed ? 0.7 : 0.45) * (0.5 + 0.5 * dimmed) * gathered);
+    glow(ctx, x, y, (pointed ? 26 : 15) * mark, C.calm, (pointed ? 0.7 : 0.45) * (0.5 + 0.5 * dimmed) * gathered);
     ping(x, y, C.calm, 1.4, gathered);
-    const size = pointed ? 6.5 : 5;
+    const size = (pointed ? 6.5 : 5) * mark;
     ctx.globalAlpha = 0.95 * gathered;
     ctx.strokeStyle = css(C.calm);
     ctx.lineWidth = 1.5;
@@ -1017,18 +1141,18 @@ export function startHub({ slab, stage, button, status }) {
     ctx.strokeStyle = css(c);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(x, y, 9 + 15 * ease(t), 0, TAU);
+    ctx.arc(x, y, (9 + 15 * ease(t)) * mark, 0, TAU);
     ctx.stroke();
   }
 
-  /** From each account, up through the stem to the orchestrator: what the work is drawing on. */
+  /** From each account, up under the glass to the orchestrator: what the work is drawing on. */
   const artery = [[0, 0], [0, 0], [0, 0], [0, 0]];
   function drawArteries(gathered) {
     const pointed = focus === 'accounts';
     const full = accounts.full;
     const active = accounts.active;
     const [cx, cy] = at.orchestrator;
-    project(0, 0.6, 0.26, view, P); // the foot of the brainstem
+    project(0, GLASS.floor + 0.34, 0, view, P); // under the middle of the glass
     const footX = P[0];
     const footY = P[1];
     seats.forEach((seat, i) => {
@@ -1080,7 +1204,7 @@ export function startHub({ slab, stage, button, status }) {
     ];
     path(build, DECISION, C.calm, 0.55, 1.5);
     for (const [to, c] of ways) path(DECISION, to, c, 0.62, 1.6);
-    // The third way leaves the brain: a question for whoever is reading the page.
+    // The third way leaves the mind: a question for whoever is reading the page.
     const from = { x: at.decision[0], y: at.decision[1] };
     const ask = pill ? wire(from, port(pill, from)) : null;
     if (ask) curve(ask, C.held, 0.62, 1.6);
@@ -1103,7 +1227,7 @@ export function startHub({ slab, stage, button, status }) {
     }
   }
 
-  /** From each stage's place on the brain to its name. */
+  /** From each stage's place under the glass to its name. */
   function drawLeaders(gathered) {
     ctx.lineWidth = 1;
     names.forEach((name, i) => {
@@ -1111,7 +1235,7 @@ export function startHub({ slab, stage, button, status }) {
       const near = clamp(0.98 - name.depth * 0.5, 0.45, 1);
       const alpha = near * (0.5 + 0.5 * dimmed) * gathered;
       const c = lit ? C.lit : C.inks[1];
-      // The place itself: a small ring on the surface.
+      // The place itself: a small ring.
       ctx.globalAlpha = alpha * (lit ? 1 : 0.8);
       ctx.strokeStyle = css(c);
       ctx.beginPath();
@@ -1232,7 +1356,7 @@ export function startHub({ slab, stage, button, status }) {
   document.fonts?.ready.then(measured);
   draw();
 
-  // The full brain is built once the page has nothing better to do: until then the plain one stands in.
+  // The full cloud is built once the page has nothing better to do: until then the plain one stands in.
   (window.requestIdleCallback ?? ((run) => setTimeout(run, 240)))(buildCloud);
 
   const loop = whileVisible(

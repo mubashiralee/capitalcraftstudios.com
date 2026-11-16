@@ -1,16 +1,16 @@
-// Where things stand round the Hub's brain on the screen: the names of its stages, set out as on
-// an anatomical plate, and the wire that runs from a held release to the page's own button.
+// Where things stand round the Hub's mind on the screen: the names of its stages, set out as on
+// the plate of a star chart, and the wire that runs from a held release to the page's own button.
 //
-// Screen numbers only. Nothing here knows the brain's shape (js/cortex.js) or touches the page
+// Screen numbers only. Nothing here knows the mind's shape (js/cortex.js) or touches the page
 // (js/hub.js does both), so the same code runs in Node (tests/callouts.test.mjs).
 
-/** How the names keep clear of the brain and of each other, in pixels unless it says otherwise. */
+/** How the names keep clear of the mind and of each other, in pixels unless it says otherwise. */
 export const NAMES = Object.freeze({
-  pad: 12, // how far a name stands off the edge of the brain
+  pad: 12, // how far a name stands off the edge of the mind
   gap: 6, // the least room between two names
   spare: 8, // the extra room a name wants before it goes back to its own place
-  crown: 0.9, // how near the top or the foot of the brain a name may stand, as a share of half its height
-  across: 0.12, // how far past the middle a region must go before its name changes sides, as a share of half the brain's width
+  crown: 0.9, // how near the top or the foot of the mind a name may stand, as a share of half its height
+  across: 0.12, // how far past the middle a region must go before its name changes sides, as a share of half the mind's width
 });
 
 /** A name's seat: its own place beside its region, or moved aside to one side of a name that is in its way. */
@@ -27,15 +27,15 @@ function kept(box, room) {
 }
 
 /**
- * A name's own place: beside the brain, level with its region, as the names on an anatomical
- * plate stand in a column either side of the figure. The brain is taken as an ellipse, and the
+ * A name's own place: beside the mind, level with its region, as the names on an engraved
+ * plate stand in a column either side of the figure. The mind is taken as an ellipse, and the
  * name starts `pad` beyond its edge at that height, so that every corner of the name is clear of it.
- * @param {number} side -1 to the left of the brain, 1 to the right
+ * @param {number} side -1 to the left of the mind, 1 to the right
  */
 function homeOf(region, plate, side) {
   const half = plate.tall / 2 / plate.down;
   const level = clamp((region.y - plate.y) / plate.down, -NAMES.crown, NAMES.crown);
-  // The brain is widest at its middle: the edge to keep clear of is the one at whichever of the
+  // The mind is widest at its middle: the edge to keep clear of is the one at whichever of the
   // name's top and bottom is nearer that.
   const widest = level > half ? level - half : level < -half ? level + half : 0;
   const edge = plate.across * Math.sqrt(1 - widest * widest);
@@ -58,7 +58,7 @@ function beside(box, other, seat) {
   return { left: box.left + dx, top: box.top + dy, right: box.right + dx, bottom: box.bottom + dy, moved: Math.hypot(dx, dy) };
 }
 
-/** How far out from the middle of the brain the corner of a box nearest it is: 1 on the brain's edge, less inside it. */
+/** How far out from the middle of the mind the corner of a box nearest it is: 1 on the mind's edge, less inside it. */
 function clearance(box, plate) {
   let least = Infinity;
   for (const x of [box.left, box.right]) for (const y of [box.top, box.bottom]) least = Math.min(least, Math.hypot((x - plate.x) / plate.across, (y - plate.y) / plate.down));
@@ -68,10 +68,10 @@ function clearance(box, plate) {
 /**
  * Where each stage's name goes.
  *
- * Each has a place of its own (see `homeOf`) on the side of the brain its region is on, kept
+ * Each has a place of its own (see `homeOf`) on the side of the mind its region is on, kept
  * whole inside the room there is. Names are seated nearest region first. One whose place would
  * touch a name already seated is moved aside: above, below, left or right of the name in its
- * way, whichever is the least move that does not bring it in over the brain, out of the room or
+ * way, whichever is the least move that does not bring it in over the mind, out of the room or
  * against another name. One with nowhere to stand is not shown.
  *
  * A name does not dither. It changes sides only once its region is well past the middle. It
@@ -82,11 +82,11 @@ function clearance(box, plate) {
  *   where each region is on the screen, how far from the viewer (less is nearer), how wide its
  *   name is, and how the name stood last time
  * @param {{ x: number, y: number, across: number, down: number, tall: number, room: { left: number, top: number, right: number, bottom: number } }} plate
- *   the middle of the brain on the screen and half its size each way, how tall a name is, and
+ *   the middle of the mind on the screen and half its size each way, how tall a name is, and
  *   the room the names must stay inside
  * @returns {{ shown: boolean, seat: number, side: number, x: number, y: number, tipX: number, tipY: number }[]}
  *   for each region, in the order given: whether its name is shown, its seat, which side of the
- *   brain it is on (-1 left, 1 right), the top left corner of the name, and the point on it
+ *   mind it is on (-1 left, 1 right), the top left corner of the name, and the point on it
  *   nearest the region, where its leader ends
  */
 export function layNames(regions, plate) {
@@ -108,7 +108,7 @@ export function layNames(regions, plate) {
     if (clear(home, was === SEAT.home ? NAMES.gap : NAMES.gap + NAMES.spare)) {
       box = home;
     } else {
-      // Moved aside, a name comes no further in over the brain than its own place was: not at all, where there is room.
+      // Moved aside, a name comes no further in over the mind than its own place was: not at all, where there is room.
       const least = Math.min(1, clearance(home, plate)) - 1e-9;
       const sides = [];
       for (const other of seated) {

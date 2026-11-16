@@ -4,13 +4,14 @@
 // What is tested here is the one thing only the view decides: that the picture is drawn again
 // whenever what was on its canvases is gone. A canvas is wiped when it is given a size and when
 // the graphics card takes its context away, and a view that draws only on a change (motion
-// reduced) or only on the next frame (a window being resized) would leave the brain missing.
+// reduced) or only on the next frame (a window being resized) would leave the mind missing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 // ---- a made-up page: just enough of one for js/hub.js to run on ----
 
 const motion = { matches: false }; // "reduce motion", switched by each test before it starts a Hub
+const narrow = { matches: false }; // a page no wider than a phone's, switched the same way
 const frames = []; // what the page has asked to run on the next frame
 const whenIdle = [];
 const sizeWatchers = [];
@@ -117,7 +118,7 @@ Part.hasCard = true;
 globalThis.window = globalThis;
 globalThis.addEventListener = () => {};
 globalThis.devicePixelRatio = 2;
-globalThis.matchMedia = (query) => (query.includes('reduced-motion') ? motion : { matches: query.includes('hover') });
+globalThis.matchMedia = (query) => (query.includes('reduced-motion') ? motion : query.includes('max-width') ? narrow : { matches: query.includes('hover') });
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '' });
 globalThis.requestAnimationFrame = (run) => frames.push(run);
 globalThis.requestIdleCallback = (run) => whenIdle.push(run);
@@ -157,6 +158,7 @@ globalThis.document = {
 };
 
 const { startHub } = await import('../js/hub.js');
+const { PLAN, SPARE, buildMind, seeded } = await import('../js/cortex.js');
 
 // One clock: what the page reads as the time is the time its frames are given, as in a browser
 // that is keeping up. (A frame timed before the page's clock is js/motion.js's business, and is
@@ -170,9 +172,10 @@ function run(count) {
   }
 }
 
-/** A Hub on its sheet, in view, with its full brain built and the page at rest. */
-function aHub({ reduce, inView = true }) {
+/** A Hub on its sheet, in view, with its full mind built and the page at rest. */
+function aHub({ reduce, inView = true, small = false }) {
   motion.matches = reduce;
+  narrow.matches = small;
   for (const list of [frames, whenIdle, sizeWatchers, viewWatchers]) list.length = 0;
   const sheet = Object.assign(new Part('section'), { className: 'sheet', positioned: true });
   const slab = Object.assign(new Part('div'), { className: 'hub__slab', positioned: true, box: { x: 100, y: 1000, w: 1200, h: 640 } });
@@ -195,26 +198,46 @@ function aHub({ reduce, inView = true }) {
   run(90);
 
   const scene = slab.children[0];
-  const [under, glass, over] = scene.children;
-  const drawn = () => ({ desk: under.pen.calls.clearRect ?? 0, work: over.pen.calls.clearRect ?? 0, brain: glass.card.calls.drawArrays ?? 0 });
-  const forget = () => [under.pen, over.pen, glass.card].forEach((each) => each.forget());
+  // Three layers, or two on a page with no graphics card: the Hub takes the card's layer away when it cannot use it.
+  const under = scene.children[0];
+  const over = scene.children.at(-1);
+  const glass = scene.children.length === 3 ? scene.children[1] : null;
+  const drawn = () => ({ desk: under.pen.calls.clearRect ?? 0, work: over.pen.calls.clearRect ?? 0, mind: glass?.card.calls.drawArrays ?? 0 });
+  const forget = () => [under.pen, over.pen, glass?.card].forEach((each) => each?.forget());
   forget();
   const within = (part) => [part, ...part.children.flatMap(within)];
   const names = within(slab).filter((part) => part.className.includes('hub__label'));
   return { scene, glass, names, drawn, forget, show, resized: () => mine.size.forEach((watcher) => watcher.heard([])) };
 }
 
-test('the made-up page runs the Hub: its full brain is built, and with motion on it is drawn every frame', () => {
+test('the made-up page runs the Hub: its full mind is built, and with motion on it is drawn every frame', () => {
   const hub = aHub({ reduce: false });
   assert.equal(hub.scene.dataset.cloud, 'card');
   run(30);
-  assert.deepEqual(hub.drawn(), { desk: 30, work: 30, brain: 30 });
+  assert.deepEqual(hub.drawn(), { desk: 30, work: 30, mind: 30 });
+});
+
+test('a small page is given the sparer constellation, and a wide one the full: on the graphics card and on the plain canvas alike', () => {
+  // The view picks the plan and how dense the card's cloud is; the numbers are js/cortex.js's (14 and 9 times the plain cloud's points).
+  const wide = aHub({ reduce: true });
+  assert.equal(wide.scene.dataset.points, String(buildMind(seeded(42), 14, PLAN).count));
+  const small = aHub({ reduce: true, small: true });
+  assert.equal(small.scene.dataset.points, String(buildMind(seeded(42), 9, SPARE).count));
+
+  Part.hasCard = false;
+  try {
+    const plain = aHub({ reduce: true, small: true });
+    assert.equal(plain.scene.dataset.cloud, 'plain');
+    assert.equal(plain.scene.dataset.points, String(buildMind(seeded(42), 1, SPARE).count), 'without a graphics card a small page is drawn the full constellation');
+  } finally {
+    Part.hasCard = true;
+  }
 });
 
 test('with motion reduced the Hub is drawn only when something has changed it', () => {
   const hub = aHub({ reduce: true });
   run(30);
-  assert.deepEqual(hub.drawn(), { desk: 0, work: 0, brain: 0 }, 'a still Hub is being drawn again and again');
+  assert.deepEqual(hub.drawn(), { desk: 0, work: 0, mind: 0 }, 'a still Hub is being drawn again and again');
 });
 
 test('a new size wipes the canvases, so the Hub is drawn again there and then, not on the next frame', () => {
@@ -223,8 +246,8 @@ test('a new size wipes the canvases, so the Hub is drawn again there and then, n
   for (const reduce of [false, true]) {
     const hub = aHub({ reduce });
     hub.resized(); // no frame is run: the drawing must have happened by the time this returns
-    const { desk, work, brain } = hub.drawn();
-    assert.ok(desk >= 1 && work >= 1 && brain >= 1, `after a new size (motion ${reduce ? 'reduced' : 'on'}) the Hub was left undrawn: ${JSON.stringify({ desk, work, brain })}`);
+    const { desk, work, mind } = hub.drawn();
+    assert.ok(desk >= 1 && work >= 1 && mind >= 1, `after a new size (motion ${reduce ? 'reduced' : 'on'}) the Hub was left undrawn: ${JSON.stringify({ desk, work, mind })}`);
   }
 });
 
@@ -249,19 +272,19 @@ test('a Hub that is out of sight is not drawn for a new size, and is drawn the m
   const hub = aHub({ reduce: false, inView: false });
   hub.forget();
   hub.resized();
-  assert.deepEqual(hub.drawn(), { desk: 0, work: 0, brain: 0 }, 'a Hub nobody can see was drawn');
+  assert.deepEqual(hub.drawn(), { desk: 0, work: 0, mind: 0 }, 'a Hub nobody can see was drawn');
   hub.show(true);
   run(1);
-  const { desk, work, brain } = hub.drawn();
-  assert.ok(desk >= 1 && work >= 1 && brain >= 1, `seen again, the Hub was left undrawn: ${JSON.stringify({ desk, work, brain })}`);
+  const { desk, work, mind } = hub.drawn();
+  assert.ok(desk >= 1 && work >= 1 && mind >= 1, `seen again, the Hub was left undrawn: ${JSON.stringify({ desk, work, mind })}`);
 });
 
 test('the fonts arriving make the Hub measure itself again, and it is drawn again there and then', async () => {
   for (const reduce of [false, true]) {
     const hub = aHub({ reduce }); // the page's fonts are ready, and the Hub hears of it once this has returned
     await new Promise((done) => setImmediate(done));
-    const { desk, work, brain } = hub.drawn(); // no frame has been run
-    assert.ok(desk >= 1 && work >= 1 && brain >= 1, `after the fonts arrived (motion ${reduce ? 'reduced' : 'on'}) the Hub was left undrawn: ${JSON.stringify({ desk, work, brain })}`);
+    const { desk, work, mind } = hub.drawn(); // no frame has been run
+    assert.ok(desk >= 1 && work >= 1 && mind >= 1, `after the fonts arrived (motion ${reduce ? 'reduced' : 'on'}) the Hub was left undrawn: ${JSON.stringify({ desk, work, mind })}`);
   }
 });
 
@@ -269,9 +292,9 @@ test('with motion reduced, a context the card takes away and hands back is drawn
   const hub = aHub({ reduce: true });
   hub.glass.tell('webglcontextlost');
   run(3);
-  assert.deepEqual(hub.drawn(), { desk: 1, work: 1, brain: 0 }, 'with the context lost the plainer brain must be drawn in its place, once');
+  assert.deepEqual(hub.drawn(), { desk: 1, work: 1, mind: 0 }, 'with the context lost the plainer mind must be drawn in its place, once');
   hub.forget();
   hub.glass.tell('webglcontextrestored');
   run(3);
-  assert.deepEqual(hub.drawn(), { desk: 1, work: 1, brain: 1 }, 'with the context back the full brain must be drawn again, once');
+  assert.deepEqual(hub.drawn(), { desk: 1, work: 1, mind: 1 }, 'with the context back the full mind must be drawn again, once');
 });

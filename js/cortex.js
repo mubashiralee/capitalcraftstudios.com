@@ -1,14 +1,14 @@
-// The Orchestration Hub's brain as numbers: the shape it is drawn as, where its
-// regions sit, the path a signal takes between them, and where a job is at any
+// The Orchestration Hub's mind as numbers: the shape it is drawn as, where its
+// stages sit, the path a signal takes between them, and where a job is at any
 // moment of its life on the floor (js/floor.js). Nothing here touches the page,
 // so the same code runs in the browser (js/hub.js draws it) and in Node
 // (tests/cortex.test.mjs).
 //
-// The anatomy is the Hub's own: its Cortex view draws the orchestration as a
-// brain made of this point cloud. Two hemispheres with winding folds and a dark
-// fissure between them, temporal lobes, a cerebellum with its folia, and a short
-// brainstem. It stands over a desk: the one desk the whole floor is run from.
-// Screen y points down, so "up" is negative y; the front of the brain is -z.
+// The mind is a constellation under glass: many lights joined by fine threads,
+// one for each of the places the work stops at and many more between them, kept
+// under one round dome of glass. It floats over a desk: the one desk the whole
+// floor is run from. Nothing in it is anatomy. Screen y points down, so "up" is
+// negative y; the front of the mind is -z.
 
 import { GATE, STAGES } from './floor.js';
 
@@ -39,180 +39,281 @@ const normalise = (v) => {
   return v.map((part) => part / length);
 };
 
-// The shells the brain is made of. Each is an ellipsoid: `wide`, `tall` and `deep` are its half
-// sizes across, up and front to back.
-// The hemispheres stand either side of the midline, and their undersides are pressed flat.
-const HEMI = Object.freeze({ offset: 0.37, wide: 0.36, tall: 0.5, deep: 0.86, lift: -0.1, floor: 0.2, flat: 0.35 });
-// The temporal lobes: under each hemisphere, towards the front.
-const TEMPORAL = Object.freeze({ offset: 0.5, y: 0.2, z: -0.14, wide: 0.22, tall: 0.15, deep: 0.4 });
-// The cerebellum: under the back of the brain.
-const CEREBELLUM = Object.freeze({ y: 0.33, z: 0.6, wide: 0.48, tall: 0.17, deep: 0.26 });
-// The brainstem: a short cone going down from the middle, leaning back a little.
-const STEM = Object.freeze({ top: 0.2, long: 0.42, z: 0.24, lean: 0.07, thick: 0.13, thin: 0.075 });
+// The glass the mind is kept under: one round dome. It is an ellipsoid as wide as it is deep
+// (`round` is half its width) and `tall` high above its middle, which stands `lift` above the
+// middle of the figure. Below its widest it is cut off flat, at `floor`, and ends there in a rim.
+export const GLASS = Object.freeze({ round: 0.86, tall: 0.5, lift: -0.1, floor: 0.2 });
 
-/**
- * How far up the side of a fold a point of the cortex stands: 0 at the bottom of a groove, 1
- * anywhere on a crest. The grooves are where a winding surface (a gyroid, bent out of true so
- * that it never repeats) cuts through the brain, so on its surface they are thin lines that
- * wander, branch and meet, with broad crests between: the look of a cortex.
- */
-export function fold(x, y, z) {
-  const u = x + 0.05 * Math.sin(y * 7.3 + 1.1) + 0.035 * Math.sin(z * 11.9 + 4);
-  const v = y + 0.05 * Math.sin(z * 6.7 + 2.6) + 0.035 * Math.sin(x * 12.7 + 0.8);
-  const w = z + 0.05 * Math.sin(x * 7.9 + 5.2) + 0.035 * Math.sin(y * 10.3 + 3.1);
-  const winding = Math.sin(u * FOLDS) * Math.cos(v * FOLDS) + Math.sin(v * FOLDS) * Math.cos(w * FOLDS) + Math.sin(w * FOLDS) * Math.cos(u * FOLDS);
-  const out = Math.min(1, Math.abs(winding) / GROOVE);
-  return out * out * (3 - 2 * out);
-}
-const FOLDS = 15.5; // how tightly the folds are packed: about eleven across the length of the brain
-const GROOVE = 0.46; // how wide a groove is, against the crests either side of it
-
-/**
- * A point on one hemisphere (`side` -1 left, 1 right) in direction `d`, `reach` of the way out
- * (1 is the surface). A brain is widest behind its middle: it narrows to the front, and a
- * little to the back.
- */
-export function surface(side, d, reach = 1) {
-  const taper = 1 - 0.14 * Math.max(0, -d[2]) ** 2 - 0.05 * Math.max(0, d[2]) ** 2;
-  const x = (side * HEMI.offset + d[0] * HEMI.wide * reach) * taper;
-  let y = HEMI.lift + d[1] * HEMI.tall * reach;
-  const z = d[2] * HEMI.deep * reach;
-  if (y > HEMI.floor) y = HEMI.floor + (y - HEMI.floor) * HEMI.flat; // the underside is flattened
-  return [x, y, z];
+/** The point in direction `d` from the middle of the dome, `reach` of the way out (1 is the glass). */
+export function inGlass(d, reach = 1, out = [0, 0, 0]) {
+  out[0] = d[0] * GLASS.round * reach;
+  out[1] = GLASS.lift + d[1] * GLASS.tall * reach;
+  out[2] = d[2] * GLASS.round * reach;
+  return out;
 }
 
-/** Whether a point lies inside a hemisphere, by more than a sliver. */
-function insideHemisphere(x, y, z) {
-  const raised = y > HEMI.floor ? HEMI.floor + (y - HEMI.floor) / HEMI.flat : y; // undo the flattening
-  const across = (Math.abs(x) - HEMI.offset) / HEMI.wide;
-  return Math.hypot(across, (raised - HEMI.lift) / HEMI.tall, z / HEMI.deep) < 0.94;
+/** How far out from the middle of the dome a point is: 0 at the middle, 1 on the glass. */
+export function reachOf(x, y, z) {
+  return Math.hypot(x / GLASS.round, (y - GLASS.lift) / GLASS.tall, z / GLASS.round);
 }
 
-/** Whether a point lies inside a temporal lobe, by more than a sliver. */
-function insideTemporal(x, y, z) {
-  return Math.hypot((Math.abs(x) - TEMPORAL.offset) / TEMPORAL.wide, (y - TEMPORAL.y) / TEMPORAL.tall, (z - TEMPORAL.z) / TEMPORAL.deep) < 0.94;
+/** The way straight out through the glass from a point under it. */
+function outOf(x, y, z) {
+  const out = [x / GLASS.round ** 2, (y - GLASS.lift) / GLASS.tall ** 2, z / GLASS.round ** 2];
+  return Math.hypot(...out) > 0 ? normalise(out) : [0, -1, 0];
 }
+
+/** How wide the rim is: half the width of the dome where it is cut off. */
+export const RIM = GLASS.round * Math.sqrt(1 - ((GLASS.floor - GLASS.lift) / GLASS.tall) ** 2);
 
 /**
  * Whether to keep a try in direction `d` on an ellipsoid, so that the points lie evenly over
  * it. Directions spread evenly over a ball land crowded at the narrow ends of an ellipsoid:
- * a try is kept as often as the patch of surface it stands for is large.
+ * a try is kept as often as the patch of glass it stands for is large.
  */
 function spreadEvenly(d, wide, tall, deep, random) {
   const patch = Math.hypot(tall * deep * d[0], wide * deep * d[1], wide * tall * d[2]);
   return random() * Math.max(tall * deep, wide * deep, wide * tall) < patch;
 }
 
-/** Parts of the brain, for colouring and for the folds' pattern. */
-export const PART = Object.freeze({ cortex: 0, cerebellum: 1, stem: 2 });
-
-// How many tries each part gets in a cloud of the plainest density. About half the tries on the
-// cortex come to nothing: in a groove, on the wall of the fissure, or buried in another part.
-const TRIES = Object.freeze({ hemispheres: 6000, temporal: 1240, cerebellum: 1440, stem: 360 });
+/**
+ * What a point of the cloud is part of. A node is one of the constellation's lights, and a halo
+ * the soft glow round it. A thread is the line of light between two nodes. The glass is the fine
+ * dust the dome is drawn in, and a mote is a grain of dust adrift under it.
+ */
+export const PART = Object.freeze({ node: 0, thread: 1, glass: 2, halo: 3, mote: 4 });
 
 /**
- * The brain as a cloud of points.
- * @param {() => number} [random]
- * @param {number} [density] 1 is a cloud light enough to draw point by point on a plain canvas
- *   (about 3,900 points); more is the same brain with that many times the points.
- * @returns {{ count: number, at: Float32Array, normal: Float32Array, fold: Float32Array, part: Uint8Array, own: Float32Array }}
- *   `at` and `normal` hold x, y, z for each point in turn; `normal` is the way its surface faces,
- *   `fold` how far up its fold it stands (0 to 1), and `own` a number of its own from 0 up to 1,
- *   so that points can do things each in its own time.
+ * The plan of the constellation. It is the same however many points draw it: a denser cloud is
+ * the same nodes and the same threads, drawn finer.
  */
-export function buildCortex(random = seeded(42), density = 1) {
+export const PLAN = Object.freeze({
+  seed: 7,
+  nodes: 140, // besides the five the work stops at
+  apart: 0.12, // no two nodes are nearer than this
+  outer: 0.88, // no node is further out than this (1 is the glass)
+  above: 0.06, // and every one is at least this far above the rim
+  // How sparing the threads are. Two nodes are joined when no third stands between them: in the
+  // lens where two balls overlap, each `lune` / 2 times as wide as the two are apart and centred
+  // towards one of them. At 1 the lens is the ball between the two, and there are many threads;
+  // at 2 it is everything nearer to both than they are to each other, and there are few. At any
+  // setting between, every node can be reached from every other.
+  lune: 2,
+  large: 1.7, // how large the largest node is, against one of the middle size; most are small
+  orchestrator: 2.2, // the orchestrator's own node, and each stage's
+  stage: 1.7,
+});
+
+/**
+ * The same plan for a picture too small to show that many nodes apart (a phone): fewer of them,
+ * further from each other. Drawn small, the full constellation is a tangle.
+ */
+export const SPARE = Object.freeze({ ...PLAN, nodes: 62, apart: 0.17 });
+
+/**
+ * The signals that run along the threads by themselves. Each thread carries one every `every`
+ * seconds, at `speed` units of the mind a second; none sets out in the last `clear` seconds of
+ * that time, so that every one has run its thread before the time starts again.
+ */
+export const PULSE = Object.freeze({ every: 14, speed: 0.32, clear: 2.5 });
+
+// How many points each part gets in a cloud of the plainest density.
+const POINTS = Object.freeze({ glass: 2600, rim: 110, mote: 420, thread: 44 }); // tries on the glass, round the rim, adrift; to a unit of thread
+
+const drawnUp = new Map(); // plan -> its constellation, once it has been worked out
+/**
+ * The constellation of a plan: its nodes and the threads between them, worked out once.
+ * @param {typeof PLAN} [plan]
+ * @returns {{ nodes: { at: number[], out: number[], size: number, born: number }[], threads: { from: number, to: number, long: number, glow: number, span: number, when: number }[], anchors: number }}
+ *   The first `anchors` nodes are the orchestrator's and then each stage's. `born` is when the
+ *   growing constellation reaches a node: 0 at the orchestrator, 1 at the node furthest from it
+ *   along the threads. A thread's `span` is its length on that scale, and `when` the second its
+ *   signal sets out.
+ */
+export function constellation(plan = PLAN) {
+  const known = drawnUp.get(plan);
+  if (known) return known;
+  const random = seeded(plan.seed);
+  const gap = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+  // The places the work stops at come first, and are the largest.
+  const nodes = [{ at: [...ORCHESTRATOR], size: plan.orchestrator }, ...REGIONS.map((region) => ({ at: [...region.centre], size: plan.stage }))];
+  const anchors = nodes.length;
+  for (let tries = 0; nodes.length < anchors + plan.nodes; tries += 1) {
+    if (tries > 200000) throw new Error(`There is no room under the glass for ${plan.nodes} nodes ${plan.apart} apart.`);
+    const at = inGlass(direction(random), plan.outer * Math.cbrt(random()));
+    if (at[1] > GLASS.floor - plan.above) continue;
+    if (nodes.some((node) => gap(node.at, at) < plan.apart)) continue;
+    // A few nodes are large and most are small: a sky has few bright stars.
+    nodes.push({ at, size: 0.5 + (plan.large - 0.5) * random() ** 3 });
+  }
+  for (const node of nodes) node.out = outOf(...node.at);
+
+  const threads = [];
+  const share = plan.lune / 2;
+  const one = [0, 0, 0];
+  const other = [0, 0, 0];
+  for (let i = 0; i < nodes.length; i += 1) {
+    for (let j = i + 1; j < nodes.length; j += 1) {
+      const a = nodes[i].at;
+      const b = nodes[j].at;
+      const long = gap(a, b);
+      for (let k = 0; k < 3; k += 1) {
+        one[k] = a[k] + (b[k] - a[k]) * share;
+        other[k] = b[k] + (a[k] - b[k]) * share;
+      }
+      const between = nodes.some((node, k) => k !== i && k !== j && gap(node.at, one) < share * long && gap(node.at, other) < share * long);
+      // A thread between two large nodes is the brighter.
+      // A thread is as bright as the smaller of its two nodes: the few between large nodes stand out from the many between small ones.
+      if (!between) threads.push({ from: i, to: j, long, glow: 0.45 + 0.5 * Math.min(nodes[i].size, nodes[j].size) });
+    }
+  }
+
+  // How far each node is from the orchestrator, along the threads.
+  const far = nodes.map(() => Infinity);
+  far[0] = 0;
+  const reached = new Set();
+  while (reached.size < nodes.length) {
+    let nearest = -1;
+    for (let i = 0; i < nodes.length; i += 1) if (!reached.has(i) && (nearest < 0 || far[i] < far[nearest])) nearest = i;
+    if (far[nearest] === Infinity) throw new Error('The constellation is in pieces: a node cannot be reached from the orchestrator.');
+    reached.add(nearest);
+    for (const thread of threads) {
+      if (thread.from === nearest) far[thread.to] = Math.min(far[thread.to], far[nearest] + thread.long);
+      else if (thread.to === nearest) far[thread.from] = Math.min(far[thread.from], far[nearest] + thread.long);
+    }
+  }
+  const furthest = Math.max(...far);
+  nodes.forEach((node, i) => {
+    node.born = far[i] / furthest;
+  });
+  for (const thread of threads) {
+    thread.span = thread.long / furthest;
+    thread.when = random() * (PULSE.every - PULSE.clear);
+  }
+
+  const drawn = Object.freeze({ nodes: Object.freeze(nodes.map(Object.freeze)), threads: Object.freeze(threads.map(Object.freeze)), anchors });
+  drawnUp.set(plan, drawn);
+  return drawn;
+}
+
+/**
+ * The mind as a cloud of points: a constellation under glass.
+ * @param {() => number} [random]
+ * @param {number} [density] 1 is a cloud light enough to draw on a plain canvas; more is the
+ *   same constellation with that many times the points on its glass and along its threads.
+ * @param {typeof PLAN} [plan] which constellation: the full one, or `SPARE` for a small picture
+ * @returns {{ count: number, at: Float32Array, normal: Float32Array, glow: Float32Array, part: Uint8Array, own: Float32Array, born: Float32Array, thread: Float32Array, plan: typeof PLAN }}
+ *   `at` and `normal` hold x, y, z for each point in turn; `normal` is the way out through the
+ *   glass there (on the rim, straight down). `glow` is how bright the point is of itself: for a
+ *   node and its halo, how large the node is. `own` is a number of its own from 0 up to 1, so
+ *   that points can do things each in its own time. `born` is when the growing constellation
+ *   reaches the point, from 0 at the orchestrator to 1 at the furthest node; the glass and the
+ *   motes are not grown, and have 0. `thread` holds three numbers for each point: the second its
+ *   thread's signal sets out (-1 for a point on no thread), how far along the thread the point
+ *   lies (0 to 1), and how long the thread is.
+ */
+export function buildMind(random = seeded(42), density = 1, plan = PLAN) {
   if (!(density > 0)) throw new RangeError(`A cloud needs some points: density ${density}`);
+  const { nodes, threads } = constellation(plan);
   const at = [];
   const normal = [];
-  const folds = [];
+  const glow = [];
   const part = [];
   const own = [];
-  const push = (point, facing, height, kind) => {
-    at.push(...point);
+  const born = [];
+  const thread = [];
+  const push = (point, facing, bright, kind, birth = 0, when = -1, along = 0, long = 0) => {
+    at.push(point[0], point[1], point[2]);
     normal.push(...normalise(facing));
-    folds.push(height);
+    glow.push(bright);
     part.push(kind);
     own.push(random());
+    born.push(birth);
+    thread.push(when, along, long);
   };
-  const tries = (name) => Math.round(TRIES[name] * density);
 
-  for (let i = tries('hemispheres'); i > 0; i -= 1) {
+  // The glass: fine dust over the dome, down to where it is cut off.
+  for (let i = Math.round(POINTS.glass * density); i > 0; i -= 1) {
     const d = direction(random);
-    const side = random() < 0.5 ? -1 : 1;
-    if (!spreadEvenly(d, HEMI.wide, HEMI.tall, HEMI.deep, random)) continue;
-    // The inner wall of each hemisphere stays mostly dark: the fissure between them.
-    if (d[0] * side < -0.5 && random() < 0.85) continue;
-    const smooth = surface(side, d);
-    if (insideTemporal(...smooth)) continue;
-    const height = fold(...smooth);
-    if (random() > 0.08 + 0.92 * height) continue; // a groove holds few points, so it draws as a dark line
-    const under = HEMI.lift + d[1] * HEMI.tall > HEMI.floor;
-    push(surface(side, d, 1 - 0.035 * (1 - height)), [d[0] / HEMI.wide, d[1] / (HEMI.tall * (under ? HEMI.flat : 1)), d[2] / HEMI.deep], height, PART.cortex);
+    if (!spreadEvenly(d, GLASS.round, GLASS.tall, GLASS.round, random)) continue;
+    const point = inGlass(d);
+    if (point[1] > GLASS.floor) continue;
+    push(point, [d[0] / GLASS.round, d[1] / GLASS.tall, d[2] / GLASS.round], 1, PART.glass);
   }
-  for (let i = tries('temporal'); i > 0; i -= 1) {
-    const d = direction(random);
-    const side = random() < 0.5 ? -1 : 1;
-    if (!spreadEvenly(d, TEMPORAL.wide, TEMPORAL.tall, TEMPORAL.deep, random)) continue;
-    const point = (reach) => [side * TEMPORAL.offset + d[0] * TEMPORAL.wide * reach, TEMPORAL.y + d[1] * TEMPORAL.tall * reach, TEMPORAL.z + d[2] * TEMPORAL.deep * reach];
-    const smooth = point(1);
-    if (insideHemisphere(...smooth)) continue;
-    const height = fold(...smooth);
-    if (random() > 0.08 + 0.92 * height) continue;
-    push(point(1 - 0.05 * (1 - height)), [d[0] / TEMPORAL.wide, d[1] / TEMPORAL.tall, d[2] / TEMPORAL.deep], height, PART.cortex);
-  }
-  for (let i = tries('cerebellum'); i > 0; i -= 1) {
-    const d = direction(random);
-    if (!spreadEvenly(d, CEREBELLUM.wide, CEREBELLUM.tall, CEREBELLUM.deep, random)) continue;
-    const point = [d[0] * CEREBELLUM.wide, CEREBELLUM.y + d[1] * CEREBELLUM.tall, CEREBELLUM.z + d[2] * CEREBELLUM.deep];
-    if (insideHemisphere(...point)) continue;
-    // Its folia: fine leaves lying one on another, level from side to side.
-    const height = 0.5 + 0.5 * Math.sin(point[1] * 95);
-    if (random() > 0.15 + 0.85 * height) continue;
-    push(point, [d[0] / CEREBELLUM.wide, d[1] / CEREBELLUM.tall, d[2] / CEREBELLUM.deep], height, PART.cerebellum);
-  }
-  for (let i = tries('stem'); i > 0; i -= 1) {
-    const down = random();
+  // Its rim: a fine ring, where the glass ends.
+  for (let i = Math.round(POINTS.rim * density); i > 0; i -= 1) {
     const angle = random() * TAU;
-    const radius = STEM.thick + (STEM.thin - STEM.thick) * down;
-    push(
-      [Math.cos(angle) * radius, STEM.top + down * STEM.long, STEM.z + Math.sin(angle) * radius + down * STEM.lean],
-      [Math.cos(angle), 0, Math.sin(angle)],
-      0.6 + 0.25 * Math.sin(down * 30),
-      PART.stem,
-    );
+    push([Math.cos(angle) * RIM, GLASS.floor, Math.sin(angle) * RIM], [0, 1, 0], 1, PART.glass);
   }
+  // Motes: dust adrift under the glass, between the nodes. Most are faint.
+  for (let i = Math.round(POINTS.mote * density); i > 0; i -= 1) {
+    const d = direction(random);
+    const point = inGlass(d, 0.97 * Math.cbrt(random()));
+    if (point[1] > GLASS.floor) continue;
+    push(point, d, 0.2 + 0.8 * random() ** 3, PART.mote);
+  }
+
+  // The threads: points set evenly along each, so that a thread is a line and never a row of dots.
+  const P = [0, 0, 0];
+  for (const each of threads) {
+    const a = nodes[each.from];
+    const b = nodes[each.to];
+    const count = Math.max(3, Math.round(each.long * POINTS.thread * density));
+    for (let k = 0; k < count; k += 1) {
+      const t = (k + 0.5) / count;
+      for (let n = 0; n < 3; n += 1) P[n] = a.at[n] + (b.at[n] - a.at[n]) * t;
+      // The growing reaches a point along its thread from whichever end it comes to first.
+      const birth = Math.min(a.born + t * each.span, b.born + (1 - t) * each.span);
+      push(P, [a.out[0] + (b.out[0] - a.out[0]) * t, a.out[1] + (b.out[1] - a.out[1]) * t, a.out[2] + (b.out[2] - a.out[2]) * t], each.glow, PART.thread, birth, each.when, t, each.long);
+    }
+  }
+
+  // The nodes: one round light each, as large as the node is, and a soft halo round it. They are
+  // the same two points in a cloud of any density.
+  for (const node of nodes) {
+    push(node.at, node.out, node.size, PART.node, node.born);
+    push(node.at, node.out, node.size, PART.halo, node.born);
+  }
+
   return {
-    count: folds.length,
+    count: glow.length,
     at: new Float32Array(at),
     normal: new Float32Array(normal),
-    fold: new Float32Array(folds),
+    glow: new Float32Array(glow),
     part: new Uint8Array(part),
     own: new Float32Array(own),
+    born: new Float32Array(born),
+    thread: new Float32Array(thread),
+    plan,
   };
 }
 
-// Where each stage lives: a lobe, on alternate hemispheres, so a job crosses the midline as it goes.
-const LOBES = Object.freeze([
-  { stage: 'Queue', side: -1, d: [0.45, -0.32, -0.83] }, // frontal
-  { stage: 'Build', side: 1, d: [0.42, -0.86, 0.32] }, // parietal
-  { stage: 'Audit', side: -1, d: [0.96, 0.22, -0.18] }, // temporal
-  { stage: 'Merge', side: 1, d: [0.36, -0.22, 0.9] }, // occipital
+// Where each stage lives under the glass: a direction from the middle of the dome, and
+// `STAGE_REACH` of the way out to the glass. They are on alternate sides, so a job crosses the
+// middle as it goes.
+const STAGE_REACH = 0.8;
+const STAGES_AT = Object.freeze([
+  { stage: 'Queue', d: [-0.54, -0.3, -0.79] }, // to the front, on the left
+  { stage: 'Build', d: [0.56, -0.78, 0.29] }, // high, on the right
+  { stage: 'Audit', d: [-0.95, 0.25, -0.2] }, // far out to the left, and low
+  { stage: 'Merge', d: [0.52, -0.2, 0.83] }, // to the back, on the right
 ]);
 
 /**
  * The places a job passes: the orchestrator at the centre (index -1), then a
  * region for each stage, in order. The person a release waits for is not in
- * the brain at all: it is whoever is reading the page (js/hub.js).
+ * the mind at all: it is whoever is reading the page (js/hub.js).
  */
 export const ORCHESTRATOR = Object.freeze([0, -0.02, 0.06]);
 export const REGIONS = Object.freeze(
-  LOBES.map(({ stage, side, d }) => {
-    const out = normalise([side * d[0], d[1], d[2]]);
-    return Object.freeze({ stage, centre: surface(side, out, 0.97), out, radius: 0.15 });
+  STAGES_AT.map(({ stage, d }) => {
+    const centre = inGlass(normalise(d), STAGE_REACH);
+    return Object.freeze({ stage, centre, out: outOf(...centre), radius: 0.15 });
   }),
 );
 
-/** The middle of the brain, which signals arc away from. */
+/** The middle of the mind, which signals arc away from. */
 export const MIDDLE = Object.freeze([0, -0.05, 0.05]);
 
 /** The point a place stands for: -1 the orchestrator, 0 to 3 a stage's region. */
@@ -225,7 +326,7 @@ export function centreOf(place) {
 
 /**
  * Where in a region a job sits: near its middle, at a spot of its own so that
- * jobs side by side do not hide each other, raised a little off the surface.
+ * jobs side by side do not hide each other, a little further out from the middle.
  */
 export function spot(place, id) {
   if (place === -1) return ORCHESTRATOR;
@@ -233,7 +334,7 @@ export function spot(place, id) {
   if (!region) throw new RangeError(`There is no place ${place}.`);
   const random = seeded(id * 7919 + place * 104729);
   const [nx, ny, nz] = region.out;
-  // Two directions across the surface at the region.
+  // Two directions across the way out, at the region.
   let across = [ny, -nx, 0];
   if (Math.hypot(across[0], across[1]) < 0.1) across = [1, 0, 0];
   across = normalise(across);
@@ -246,7 +347,7 @@ export function spot(place, id) {
 
 /**
  * A point `t` (0 to 1) along the path a signal takes from `a` to `b`: a curve
- * that bows out from the middle of the brain, as the Hub's pathways do.
+ * that bows out from the middle of the mind, as the Hub's pathways do.
  */
 export function along(a, b, t, out = [0, 0, 0]) {
   const bow = 1.5;
@@ -301,14 +402,14 @@ export function approach(job) {
   return Math.min(1, Math.max(0, job.at / GATE));
 }
 
-/** The point in the brain where a job is, from `placeOf`. */
+/** The point in the mind where a job is, from `placeOf`. */
 export function pointOf(job, out = [0, 0, 0]) {
   const { from, to, t } = placeOf(job);
   return along(spot(from, job.id), spot(to, job.id), from === to ? 0 : t, out);
 }
 
 /**
- * The wave of light a merged release sends across the brain, `age` seconds
+ * The wave of light a merged release sends across the mind, `age` seconds
  * after it lands: a shell growing out from the merge, sharp at its front.
  * @returns {{ radius: number, strength: number } | null} null once it has gone
  */
@@ -322,7 +423,7 @@ export function waveAt(age) {
 /**
  * Turn and set a point on the screen.
  * @param {{ yaw: number, pitch: number, scale: number, x: number, y: number }} view
- *   `scale` is pixels for one unit of the brain; `x`, `y` where its middle lands.
+ *   `scale` is pixels for one unit of the mind; `x`, `y` where its middle lands.
  * @returns {number[]} screen x, screen y, how much nearer than the middle it looks (1 at the middle), depth (less is nearer)
  */
 export const FOV = 3.2;
@@ -366,20 +467,25 @@ export function turning(view, out = new Float32Array(9)) {
   return out;
 }
 
-/** Which way a surface faces once turned: 1 straight at the viewer or away, 0 side-on (where the rim glows). */
+/** Which way the glass faces once turned: 1 straight at the viewer or away, 0 side-on (where its edge glows). */
 export function facing(nx, ny, nz, view) {
   const z1 = -nx * Math.sin(view.yaw) + nz * Math.cos(view.yaw);
   return Math.abs(ny * Math.sin(view.pitch) + z1 * Math.cos(view.pitch));
 }
 
-/** For each point of the brain, the region it belongs to (-1 for none): lit when that region is busy. */
-export function regionOfPoints(brain) {
-  const owner = new Int8Array(brain.count).fill(-1);
-  for (let i = 0; i < brain.count; i += 1) {
+/**
+ * For each point of the mind, the region it belongs to (-1 for none): lit when that region is
+ * busy. The work is done by the constellation: the glass over it and the dust under it are not
+ * lit by it, and belong to no region.
+ */
+export function regionOfPoints(mind) {
+  const owner = new Int8Array(mind.count).fill(-1);
+  for (let i = 0; i < mind.count; i += 1) {
+    if (mind.part && (mind.part[i] === PART.glass || mind.part[i] === PART.mote)) continue;
     let best = -1;
     let bestGap = Infinity;
     REGIONS.forEach((region, r) => {
-      const gap = Math.hypot(brain.at[i * 3] - region.centre[0], brain.at[i * 3 + 1] - region.centre[1], brain.at[i * 3 + 2] - region.centre[2]);
+      const gap = Math.hypot(mind.at[i * 3] - region.centre[0], mind.at[i * 3 + 1] - region.centre[1], mind.at[i * 3 + 2] - region.centre[2]);
       if (gap < region.radius * 1.9 && gap < bestGap) {
         best = r;
         bestGap = gap;
@@ -404,7 +510,7 @@ export const VERDICTS = Object.freeze([
 ]);
 
 /**
- * The desk the brain stands over: a disc lying flat under it. The accounts the work runs on sit
+ * The desk the mind stands over: a disc lying flat under it. The accounts the work runs on sit
  * along its near rim.
  */
 export const DESK = Object.freeze({ y: 0.7, radius: 1.08 });
@@ -427,34 +533,90 @@ export function bandAt(strand, angle, drift = 0) {
 }
 
 /**
- * Where the brain is looked at from. Turned well to one side: it is first seen (and, with motion
- * reduced, only ever seen) in three-quarter profile, where its folds and both of its halves read
- * as one brain; nearer head-on the halves stand apart like two things. And from a little above,
+ * Where the mind is looked at from. The glass is round and looks the same from every side; the
+ * turn only says which of the stages are nearest when it is first seen (and, with motion
+ * reduced, only ever seen): Build and Merge, with Queue and Audit behind. And from a little above,
  * so that the desk under it is seen as a desk and not as a line.
  */
 export const LOOK = Object.freeze({ yaw: 1.15, pitch: 0.24 });
 
 /**
- * How far the whole figure reaches from the middle of the brain, seen from `LOOK`, in units of
- * the brain: to either side (the desk's rim), up (the crown of the brain) and down (the desk's
+ * How far the whole figure reaches from the middle of the mind, seen from `LOOK`, in units of
+ * the mind: to either side (the desk's rim), up (the crown of the mind) and down (the desk's
  * near rim). Each with a little air. tests/cortex.test.mjs checks that nothing is outside them.
  */
 export const FIGURE = Object.freeze({ side: 1.12, up: 0.68, down: 1.34 });
 
 /**
- * The brain as its names see it: an ellipse they keep outside of, in units of the brain, its
- * middle `low` below the brain's own. The brain is fuller at its shoulders than an ellipse of its
- * own width and height, so the plate is larger than both: tests/cortex.test.mjs checks that no
- * point of the brain, turned any way, is outside it.
+ * The mind as its names see it: an ellipse they keep outside of, in units of the mind, its middle
+ * `low` below the mind's own (it is above it: the glass stands higher than it hangs). It is a
+ * little larger than the glass: tests/cortex.test.mjs checks that no point of the mind, turned
+ * any way, is outside it, and that it is not so large that a name is pushed off what it names.
  */
-export const PLATE = Object.freeze({ across: 1.06, down: 0.95, low: 0.08 });
+export const PLATE = Object.freeze({ across: 1, down: 0.7, low: -0.12 });
+
+/** How many steps each part of the glass's outline is drawn in. */
+const OUTLINE_STEPS = 72;
+let outlined = null; // the outline, once it has been worked out
+
+/**
+ * The glass as it lies on the screen, seen from the height the mind is looked at from: its
+ * outline. The dome is round, so the outline is the same however the mind is turned. Each part
+ * is a run of points across and down from where the mind's middle lands, in units of the mind:
+ * what `project` gives for a view of scale 1 that is not turned.
+ *
+ * The eye sees the glass end along one curve on it, where a line from the eye just touches it.
+ * Squeeze the glass into a ball and that curve is a circle on the ball, a little to the eye's
+ * side of its middle (the eye is near, and sees less than half of it). Below the rim there is
+ * no glass, so the foot of that curve is missing, and the outline is closed by the near half of
+ * the rim instead; the far half of the rim is seen through the glass.
+ *
+ * @returns {{ dome: number[][], near: number[][], far: number[][], middle: number[] }}
+ *   `dome` runs from where the rim meets the outline on the left, over the crown, to where it
+ *   meets it on the right; `near` runs on from there along the near half of the rim, back to
+ *   the start, and `far` between the same two points along the far half. `middle` is where the
+ *   middle of the glass lands.
+ */
+export function glassOutline() {
+  if (outlined) return outlined;
+  const view = { yaw: 0, pitch: LOOK.pitch, scale: 1, x: 0, y: 0 };
+  // Where the eye is from the middle of the ball the glass is squeezed into: it stands FOV in
+  // front of the mind's middle, as `project` has it.
+  const down = (GLASS.lift + FOV * Math.sin(LOOK.pitch)) / GLASS.tall;
+  const away = (FOV * Math.cos(LOOK.pitch)) / GLASS.round;
+  const far = Math.hypot(down, away);
+  const toward = 1 / far; // how far to the eye's side of the ball's middle the circle lies
+  const ring = Math.sqrt(1 - toward * toward); // and how large it is
+  /** The point of the glass `angle` round that circle: 0 at the viewer's right, a quarter turn at the foot. */
+  const onEdge = (angle) => {
+    const along = ring * Math.sin(angle);
+    return inGlass([ring * Math.cos(angle), (-down * toward + away * along) / far, (-away * toward - down * along) / far]);
+  };
+  // Where the circle goes below the rim, either side of its foot.
+  const cut = Math.asin(((GLASS.floor - GLASS.lift) / GLASS.tall + (down * toward) / far) / ((ring * away) / far));
+  const flatten = (point) => {
+    const [x, y] = project(point[0], point[1], point[2], view);
+    return Object.freeze([x, y]);
+  };
+  const run = (from, to, at) => Object.freeze(Array.from({ length: OUTLINE_STEPS + 1 }, (_, n) => flatten(at(from + ((to - from) * n) / OUTLINE_STEPS))));
+  const right = onEdge(cut); // where the outline meets the rim, on the viewer's right
+  const meets = Math.atan2(right[2], right[0]); // and how far round the rim that is
+  const onRim = (angle) => [Math.cos(angle) * RIM, GLASS.floor, Math.sin(angle) * RIM];
+  outlined = Object.freeze({
+    dome: run(Math.PI - cut, TAU + cut, onEdge),
+    near: run(meets, -Math.PI - meets, onRim),
+    far: run(meets, Math.PI - meets, onRim),
+    middle: flatten([0, GLASS.lift, 0]),
+  });
+  return outlined;
+}
 
 /**
  * The view that sets the whole figure, as large as it will go, in a frame `width` by `height`.
  * @returns {{ scale: number, x: number, y: number }} to go with `LOOK` as a view for `project`
  */
 export function frameFor(width, height) {
-  if (!(width > 0 && height > 0)) throw new RangeError(`There is no room for the brain in a frame ${width} by ${height}.`);
+  if (!(width > 0 && height > 0)) throw new RangeError(`There is no room for the mind in a frame ${width} by ${height}.`);
   const scale = Math.min(width / (2 * FIGURE.side), height / (FIGURE.up + FIGURE.down));
   return { scale, x: width / 2, y: height / 2 + ((FIGURE.up - FIGURE.down) / 2) * scale };
 }
