@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- The Orchestration Hub's icon: a mind. A brain seen from the side, a lobe for each stage a job
+       goes through, parted by grooves that meet at one lit stone: the desk the floor is run from.
+       Written by tools/make-hub-icon.mjs from tools/hub-icon.mjs. Change it there, not here. -->
+  <defs>
+    <radialGradient id="ground" gradientUnits="userSpaceOnUse" cx="19" cy="9" r="68">
+      <stop offset="0" stop-color="#37606f"/>
+      <stop offset="0.5" stop-color="#173d4c"/>
+      <stop offset="1" stop-color="#0b222d"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0.2" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.26"/>
+      <stop offset="0.55" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#04131b" stop-opacity="0.3"/>
+    </linearGradient>
+    <radialGradient id="stone" cx="0.42" cy="0.36" r="0.7">
+      <stop offset="0" stop-color="#fff8e6"/>
+      <stop offset="0.5" stop-color="#ffb547"/>
+      <stop offset="1" stop-color="#f08a1c"/>
+    </radialGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#ffb547" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#ffb547" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="seam" gradientUnits="userSpaceOnUse" cx="32.4" cy="31.6" r="16">
+      <stop offset="0" stop-color="#fff1cf"/>
+      <stop offset="0.4" stop-color="#ffb547" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffb547" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="cerebrum">
+      <path d="M10.6 31.5C10.4 29.2 11.3 25.9 12.6 23.5C13.9 21.1 16 18.8 18.2 17.2C20.4 15.6 23.4 14.5 26 13.8C28.6 13.1 31.3 13 34 13.2C36.7 13.4 39.6 14.1 42 15.2C44.4 16.3 46.8 17.9 48.6 19.8C50.4 21.7 51.8 24.2 52.6 26.4C53.4 28.6 53.7 31 53.4 33C53.1 35 51.9 37.1 50.6 38.4C49.3 39.7 47.3 40.3 45.4 40.6C43.6 40.9 41.2 40 39.5 40.2C37.8 40.4 36.5 41.1 35 42C33.5 42.9 32.2 44.6 30.5 45.4C28.8 46.2 26.7 46.9 24.8 46.8C23 46.7 20.8 45.6 19.4 44.6C18 43.6 16.7 41.8 16.6 40.6C16.5 39.4 18.8 37.6 18.6 37.4C18.4 37.2 15.3 38.2 14 37.2C12.7 36.2 10.8 33.8 10.6 31.5Z"/>
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" fill="url(#ground)"/>
+  <path d="M33.2 41.6C34 45 35 48.4 36.6 51.6L39.6 50.8C38.5 48 38 45 37.9 41.4Z" fill="#3a72b4"/>
+  <path d="M40.8 44C41.5 43.2 43.7 43.1 45.2 42.7C46.7 42.3 48.6 41.5 49.8 41.6C51 41.7 52.2 42.4 52.6 43.4C53 44.4 52.7 46.2 52 47.4C51.3 48.6 49.8 50.1 48.4 50.6C47 51.1 44.9 50.7 43.6 50.2C42.3 49.7 41.3 48.6 40.8 47.6C40.3 46.6 40.1 44.8 40.8 44Z" fill="#3f7fc0"/>
+  <g clip-path="url(#cerebrum)">
+    <path d="M32.4 31.6C28.8 26.6 36.4 20.6 31.2 12.6L28 -32L86 -4L49.8 19.9C39.6 23.4 38 32.4 32.4 31.6Z" fill="#a6dff1"/>
+    <path d="M32.4 31.6C38 32.4 39.6 23.4 49.8 19.9L86 -4L95 46L65 87L38.2 41.6C40.8 37.2 36.6 33.8 32.4 31.6Z" fill="#4f9fd0"/>
+    <path d="M32.4 31.6C36.6 33.8 40.8 37.2 38.2 41.6L65 87L12 92L-27 56L17.6 37.6C22.6 32.6 27.6 35.8 32.4 31.6Z" fill="#8fd3e8"/>
+    <path d="M32.4 31.6C27.6 35.8 22.6 32.6 17.6 37.6L-27 56L-22 -2L28 -32L31.2 12.6C36.4 20.6 28.8 26.6 32.4 31.6Z" fill="#c9eefa"/>
+    <rect width="64" height="64" fill="url(#sheen)"/>
+  </g>
+  <!-- The grooves between the lobes and the seat the stone sits in, in the tile's own ground. -->
+  <path d="M32.4 31.6C28.8 26.6 36.4 20.6 31.2 12.6M32.4 31.6C38 32.4 39.6 23.4 49.8 19.9M32.4 31.6C36.6 33.8 40.8 37.2 38.2 41.6M32.4 31.6C27.6 35.8 22.6 32.6 17.6 37.6" fill="none" stroke="url(#ground)" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="32.4" cy="31.6" r="4.6" fill="url(#ground)"/>
+  <circle cx="32.4" cy="31.6" r="11" fill="url(#glow)"/>
+  <path d="M32.4 31.6C28.8 26.6 36.4 20.6 31.2 12.6M32.4 31.6C38 32.4 39.6 23.4 49.8 19.9M32.4 31.6C36.6 33.8 40.8 37.2 38.2 41.6M32.4 31.6C27.6 35.8 22.6 32.6 17.6 37.6" fill="none" stroke="url(#seam)" stroke-width="1.15" stroke-linecap="round"/>
+  <circle cx="32.4" cy="31.6" r="3.1" fill="url(#stone)"/>
+  <circle cx="31.3" cy="30.4" r="0.8" fill="#fff" opacity="0.9"/>
+</svg>
